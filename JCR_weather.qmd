@@ -1,0 +1,120 @@
+---
+title: "JCR_weather"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+jcr_weather <- read_csv("data/JCR/Jalama Canyon Ranch Weather Station Data_10022024.csv")
+
+# check col types
+sapply(jcr_weather, class)
+```
+
+```{r}
+p_jcr_precip <- jcr_weather |> 
+  pivot_longer(
+    cols = c(dayRain_c, monthRain_c, yearRain_c),
+    names_to = "type",
+    values_to = "rain_c"
+  ) |> 
+  mutate(
+    type = case_when(type == "dayRain_c" ~ "Daily Precipitation",
+                     type == "monthRain_c" ~ "Monthly Precipitation",
+                     type == "yearRain_c" ~ "Annual Precipitation"),
+    type = factor(type, levels = c("Daily Precipitation", "Monthly Precipitation", "Annual Precipitation"))
+  ) |> 
+  
+  ggplot(
+    aes(
+      x = utcdatetime,
+      y = rain_c,
+      color = type
+    )
+  ) +
+  geom_line() +
+  scale_color_brewer(palette = "Set1") +
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%Y %b") +
+  labs(
+    x = "Date",
+    y = "Precipitation (inches)",
+    color = ""
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+p_jcr_precip
+
+# cowplot::save_plot(
+#   filename = "fig_output/jcr_precip.pdf",
+#   plot = p_jcr_precip,
+#   base_height = 5,
+#   base_width = 8
+# )
+```
+
+```{r}
+jcr_weather |> 
+  pivot_longer(
+    cols = c(dayRain_c, monthRain_c, yearRain_c),
+    names_to = "type",
+    values_to = "rain_c"
+  ) |> 
+  mutate(
+    type = case_when(type == "dayRain_c" ~ "Daily Precipitation",
+                     type == "monthRain_c" ~ "Monthly Precipitation",
+                     type == "yearRain_c" ~ "Annual Precipitation"),
+    type = factor(type, levels = c("Daily Precipitation", "Monthly Precipitation", "Annual Precipitation"))
+  ) |> 
+  filter(type == "Daily Precipitation") |> 
+  ggplot(
+    aes(
+      x = utcdatetime,
+      y = rain_c,
+      color = type
+    )
+  ) +
+  geom_line() +
+  scale_color_brewer(palette = "Set1") +
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%Y %b") +
+  labs(
+    x = "Date",
+    y = "Precipitation (inches)",
+    color = ""
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+```{r}
+jcr_weather |> 
+  ggplot(
+    aes(
+      x = utcdatetime,
+      y = temp
+    )
+  ) +
+  geom_line() +
+  tidyquant::geom_ma(ma_fun = SMA, n = 365, linetype = "solid", color = "red") +
+  scale_x_datetime(date_breaks = "1 month", date_labels = "%Y %b") +
+  labs(
+    x = "",
+    y = "Temperature (F)"
+  ) +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```

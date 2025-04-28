@@ -1,0 +1,26 @@
+---
+title: "Sample Matrix"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## make the matrix
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+sample_matrix <- 
+  crossing(
+    site = c("PAL", "JCR", "LOM"),
+    drought = c("ROS", "SKY"),
+    rewet = c("WET", "DRY")
+  )
+```
+
+```{r}
+writexl::write_xlsx(sample_matrix, path = "data_output/sample_matrix.xlsx")
+```

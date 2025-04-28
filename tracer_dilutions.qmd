@@ -1,0 +1,73 @@
+---
+title: "d2H Dilutions"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+source("source/F2H_to_d2H_VSMOW.R")
+source("source/F2H_to_R2H.R")
+source("source/R2H_to_F2H.R")
+source("source/R2H_to_d2H_VSMOW.R")
+source("source/d2H_VSMOW_to_F2H.R")
+```
+
+```{r}
+df <- tibble(
+  F2H_label_at2H = 0.5
+) |> 
+  mutate(
+    F2H_label = F2H_label_at2H / 100, # at% to fractional abundance divide by 100
+    d2H_label_VSMOW = F2H_to_d2H_VSMOW(F2H_label, permil = FALSE),
+    d2H_label_VSMOW_permil = F2H_to_d2H_VSMOW(F2H_label, permil = TRUE)
+  )
+```
+
+Mass balance to calculate F_spike $$
+\begin{aligned}
+m_TF_T &= m_kF_k + m_dF_d \\
+m_kF_k &= m_TF_T - m_dF_d \\
+F_k &= \frac{m_TF_T - m_dF_d}{m_k}
+\end{aligned}
+$$
+
+where:
+
+-   m is the total molar quantitites of the elements of interest
+
+-   F is the fractional isotopic abundances of the spike "k" and the diluent "d".
+
+If we want to know how much to dilute it, we solve for m_d
+
+$$
+\begin{aligned}
+m_TF_T &= m_kF_k + m_dF_d \\
+m_TF_T - m_kF_k &= m_dF_d \\
+\frac{m_TF_T - m_kF_k }{F_d} &= m_d 
+\end{aligned}
+$$
+
+```{r}
+calculate_F_spike <- function(m_total, F_total, m_diluent, F_diluent, m_spike) {
+  F_spike = (m_total*F_total - m_diluent*F_diluent) / m_spike
+  return(F_spike)
+}
+
+calculate_m_diluent <- function(m_total, F_total, m_spike, F_spike, F_diluent) {
+  m_diluent = (m_total*F_total - m_spike*F_spike) / F_diluent
+  return(m_diluent)
+}
+
+calculate_m_diluent(
+  m_total = 1, # 1mL
+  F_total = d2H_VSMOW_to_F2H(400, permil = TRUE),
+  m_spike = 0.2, # 200 uL
+  F_diluent = d2H_VSMOW_to_F2H(-20, permil = TRUE),
+  F_spike = 0.005
+)
+```

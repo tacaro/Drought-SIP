@@ -1,0 +1,79 @@
+---
+title: "TMS_Sensors"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r}
+#install.packages("myClim")
+library(myClim)
+library(tidyverse)
+```
+
+## Read in TMS data
+
+```{r}
+# read all Tomst files from current directory
+tms.d <- mc_read_files("data/TAC_TOMST", dataformat_name = "TOMST", recursive = F, silent = T)
+```
+
+```{r}
+# clean runs automatically while reading
+tms <- mc_prep_clean(tms.d, silent = T) # clean series
+
+#> Repeated cleaning overwrite cleaning informations.
+tms.info <- mc_info_clean(tms) # call cleaning log
+
+
+```
+
+```{r}
+mc_plot_raster(tms)
+
+```
+
+## Read in metadata
+
+```{r}
+tms_metadata <- readxl::read_excel("data/Soil_Probe_Inventory.xlsx") |> 
+  filter(!is.na(`Short ID`)) |> 
+  mutate(serial_number = parse_number(Serial)) |> 
+  select(serial_number, everything())
+```
+
+# Calculate VWC, pivot, join metadata
+
+```{r}
+# calculate VWC
+tms.calc <- mc_calc_vwc(tms, soiltype = "loamy sand A")
+
+# pivot longer
+tms.long.all <- mc_reshape_long(
+  tms.calc
+  ) |> 
+  mutate(serial_number = as.numeric(serial_number)) |> 
+  left_join(tms_metadata, by = join_by(serial_number))
+```
+
+# Plot
+
+```{r}
+tms.long.all |> 
+  slice(seq(1, n(), by = 10)) |> 
+  filter(sensor_name == "VWC_moisture") |> 
+  filter(!is.na(Drought)) |> 
+  ggplot(
+    aes(
+      x = datetime,
+      y = value,
+      color = Serial
+    )
+  ) +
+  geom_line() +
+  facet_wrap(vars(Location)) +
+  theme_bw()
+```

@@ -1,0 +1,37 @@
+---
+title: "18O"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+```
+
+### Calcs
+
+The isotope ratio of VSMOW is `0.0020052` or 2005.20 ppm.
+
+```{r}
+R18O_VSMOW = 0.0020052
+
+df <- tibble(
+  F18O = seq(0.00001, 0.1, by = 0.0001),
+  R18O = F18O / (1 - F18O),
+  d18O = (R18O / R18O_VSMOW) - 1,
+  d18O_permil = d18O * 1000
+)
+
+df |> 
+  ggplot(
+    aes(
+      x = F18O,
+      y = d18O_permil
+    )
+  ) +
+  geom_line()
+```

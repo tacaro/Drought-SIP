@@ -1,0 +1,5 @@
+.DS_Store
+.Rhistory
+.Rproj.user/*
+data/NEON/*
+data/mzmine_example_data/*
