@@ -1,0 +1,102 @@
+---
+title: "Mastersizer data"
+format: html
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+library(ggtern)
+
+```
+
+```{r}
+ms <- readxl::read_excel("data/MasterSizer/20250618_TAC_SIP_Soils.xlsx") |>
+  janitor::clean_names(replace = c("\u03bc" = "u")) |>
+  select(
+    sample_name,
+    result_below_4_um,
+    result_in_range_4_62_5_um,
+    result_above_62_5_um
+  ) |>
+  mutate(
+    clay_percent = result_below_4_um,
+    silt_percent = result_in_range_4_62_5_um,
+    sand_percent = result_above_62_5_um
+  ) |>
+  group_by(sample_name) |>
+  summarise(
+    Clay = mean(clay_percent, na.rm = TRUE),
+    Silt = mean(silt_percent, na.rm = TRUE),
+    Sand = mean(sand_percent, na.rm = TRUE)
+  ) |>
+  mutate(
+    site = case_when(
+      str_detect(sample_name, "JCR") ~ "Grazed Pasture",
+      str_detect(sample_name, "LOM") ~ "Grassland"
+    ),
+    condition = case_when(
+      str_detect(sample_name, "ROS") ~ "Drought",
+      str_detect(sample_name, "SKY") ~ "Control"
+    ),
+    condition = fct_rev(condition)
+  )
+```
+
+# save it as excel
+
+```{r}
+ms |> writexl::write_xlsx("data_output/grain_size_summary.xlsx")
+```
+
+# Plot it
+```{r}
+# import usda texture triangles
+data(USDA)
+# prepare labels:
+USDA_text <- USDA %>%
+  group_by(Label) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE) %>%
+  ungroup()
+
+ternary <- ms |>
+  ggtern(
+    aes(x = Sand, y = Clay, z = Silt)
+  ) +
+  geom_text(
+    data = USDA_text,
+    aes(label = Label),
+    size = 1.5,
+    color = "grey30"
+  ) +
+  geom_polygon(
+    data = USDA,
+    aes(group = Label),
+    fill = NA,
+    linewidth = 0.3,
+    alpha = 0.5,
+    color = "grey30"
+  ) +
+  geom_point(
+    aes(color = condition, shape = site),
+    size = 2
+  ) +
+  scale_shape_manual(values = c(5, 1)) +
+  scale_color_brewer(palette = "Set1") +
+  labs(color = "", shape = "") +
+  theme_bw() +
+  theme(
+    axis.ticks = element_blank()
+  )
+
+ternary
+
+ggsave(
+  filename = "fig_output/soil_ternary_diagram.pdf",
+  plot = ternary,
+  width = 6,
+  height = 6,
+  dpi = 300
+)
+```
