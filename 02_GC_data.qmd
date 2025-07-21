@@ -1,0 +1,201 @@
+---
+title: "02_GC data"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(ggpmisc)
+library(showtext)
+```
+
+```{r}
+mtda <- readxl::read_excel("data/trace_gas_metadata.xlsx", skip = 3)
+
+df <- read_delim("data/H2_CO_GC/Dryland_flux_TCaro.csv") |> 
+  rename(sample_id = SampleID) |> 
+  left_join(mtda, by = join_by(sample_id)) |> 
+  arrange(timepoint_hr, dt_min) |> 
+  select(sample_id, site, timepoint_hr, dt_min, everything()) |> 
+  mutate(dt_min = as.numeric(dt_min)) |> 
+  # replace negative or NA values with detection limit of instrument: 0.01 for CO and 0.1 for H2
+  mutate(
+    H2_ppm = case_when(
+      H2_ppm <= 0 | is.na(H2_ppm) ~ 0.1,
+      TRUE ~ H2_ppm
+    ),
+    CO_ppm = case_when(
+      CO_ppm <= 0 | is.na(CO_ppm) ~ 0.1,
+      TRUE ~ CO_ppm
+    )
+  )
+```
+
+# Take a look at the data
+
+```{r}
+df |> 
+  filter(site == "JCR") |> 
+  ggplot(
+    aes(
+      x = dt_min,
+      y = H2_ppm,
+      color = drought
+    )
+  ) +
+    geom_smooth(
+      method = "lm",
+      se = FALSE
+    ) +
+    stat_poly_eq(use_label("eq")) +
+    geom_point(shape = 1) +
+    facet_wrap(vars(timepoint_hr)) +
+    theme_bw()
+```
+
+# Calculate flux
+
+nest the dataframes
+
+```{r}
+tg_nested <- df |> 
+  group_by(site, timepoint_hr, drought) |> 
+  nest()
+```
+
+define the linreg model
+
+```{r}
+lm_spec <- linear_reg() |> 
+  set_engine("lm")
+```
+
+fit the model for each group using `map`
+
+```{r}
+tg_flux <- tg_nested |> 
+  filter(!is.na(site), !is.na(timepoint_hr)) |> 
+  mutate(
+    model = map(
+      data, ~ fit(
+        lm_spec,
+        H2_ppm ~ dt_min,
+        data = .x
+      )
+    )
+  ) |> 
+    # extract model parameters using tidy
+  mutate(
+    tidy_model = map(model, ~tidy(.x$fit))
+  )
+
+
+  # unnest the regression params
+  model_params <- tg_flux |> 
+    select(site, tidy_model) |> 
+    unnest(tidy_model) |> 
+    # extract slope, remove intercept term, we dont want it
+    filter(term != "(Intercept)") |> 
+    rename(slope = estimate) |> 
+    mutate(uL_per_L_per_min = slope) |> 
+    select(-term) 
+```
+
+## flux calculations
+
+1.  Determine linear relationship between the concentration (ppmv) and the sampling time (minutes). Note that ppmv/min equals µL/L/min.
+2.  Convert $\alpha_v$ (flux by volume) to $\alpha_m$ (flux by mass) in µg/L/min with the ideal gas law:
+
+$$
+\alpha_m = (\alpha_v \times M \times P) / (R\times T)
+$$
+
+where:
+
+-   $\alpha_m$ = µg/L/min
+
+-   $\alpha_v$ = µL/L/min
+
+-   M = molecular weight of target species. In this case, $H_2$ = 2.01568 µg/µmol
+
+-   P = atmospheric pressure (1 atm)
+
+-   R = Gas constant 0.0821 L atm / mol K = 0.0821 µL atm/ µmol K
+
+-   T = temp in K (C + 273)
+
+Then, we calculate flux per unit area:
+
+$$
+f_m = (\alpha_m \times V \times 60 \: min/hr) / A
+$$
+
+where:
+
+-   $f_m$ = $µg/m^2/hr$
+
+-   $\alpha_m$ defined above
+
+-   V = volume of chamber (L)
+
+-   A = surface area covered by chamber, $m^2$
+
+we can also express in µmol/m2/hr by dividing by H2 molecular weight
+
+```{r}
+h2_mw = 2.01568 # ug/umol
+P_atm = 1 # 1 atm
+R = 0.0821 # uL atm / µmol K
+temp_K = 273 + 35 # placeholder temperature!
+vol_L = 3.51723 # chamber volume L
+min_per_hr = 60 # minutes per hour
+area_m2 = 0.0346185 # chamber area m2
+
+h2_flux <- model_params |> 
+  mutate(
+    ug_per_L_per_min = (uL_per_L_per_min * h2_mw * P_atm) / (R * temp_K),
+    ug_m2_hr = (ug_per_L_per_min * vol_L * min_per_hr) / area_m2,
+    umol_m2_hr = ug_m2_hr / h2_mw
+  )
+
+```
+
+## Plot H2 fluxes
+
+```{r}
+h2_flux |> 
+  filter(site != "PAL") |> 
+  mutate(drought = case_when(drought == "ROS" ~ "Drought", drought == "SKY" ~ "Non-Drought")) |> 
+  mutate(site = case_when(
+    site == "JCR" ~ "Jalama Canyon Ranch",
+    site == "LOM" ~ "Loma Ridge"
+  )) |> 
+  ggplot(
+    aes(
+      x = timepoint_hr,
+      y = umol_m2_hr,
+      color = drought
+    )
+  ) +
+    geom_hline(yintercept = 0, color = "black", linetype = "dotted") +
+    geom_smooth(method = "lm", se = FALSE) +
+    geom_point(shape = 1) +
+    facet_grid(drought ~ site) +
+    stat_poly_eq(color = "black", label.x = "right") +
+    scale_color_manual(values = c("#a8885e", "#5ea862")) +
+    coord_cartesian(xlim = c(0, 48), ylim = c(-20, 10)) +
+    theme_pilot() +
+    labs(
+      x = "Time after rewetting (hr)",
+      y = latex2exp::TeX("$µmol \\; (m^{2} \\cdot hr)^{-1}$")
+    ) +
+    theme(
+      legend.position = "none"
+    )
+
+```
