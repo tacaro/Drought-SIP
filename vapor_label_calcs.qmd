@@ -1,7 +1,7 @@
 ---
 title: "Vapor Labeling"
 format: html
-editor: visual
+editor: source
 editor_options: 
   chunk_output_type: console
 ---
@@ -44,19 +44,20 @@ water_df <- tibble(
   sample = "sample1"
 )
 
-water_df |> 
+water_df |>
   ggplot() +
-  aes(x = time, y = z) +
+  aes(x = t, y = y) +
   geom_point() +
   theme_classic()
 ```
 
 ```{r}
-water_fit_test <- nls(at18O ~ SSasymp(time, yf, y0, log_alpha), data = water_df)
+water_fit_test <- nls(y ~ SSasymp(t, yf, y0, log_alpha), data = water_df) |>
+  augment()
 
-augment(water_fit_test) |> 
+water_fit_test |>
   ggplot(
-    aes(x = time, y = at18O)
+    aes(x = t, y = y)
   ) +
   geom_point() +
   geom_line(aes(y = .fitted), color = "red")
@@ -67,28 +68,29 @@ water_df2 <- tibble(
   t = c(0, 3, 6, 17, 48),
   at18O = c(63, 50, 53, 30, 20),
   sample = "sample2"
-) |> bind_rows(water_df)
+) |>
+  bind_rows(water_df)
 
-water_tidy <- water_df2 |> 
+water_tidy <- water_df2 |>
   nest(data = -sample) |> # put everything into nested dfs in a col called "data"
   mutate(
-    fit = map(data, ~nls(at18O ~ SSasymp(time, yf, y0, log_alpha), data = .)),
+    fit = map(data, ~ nls(at18O ~ SSasymp(t, yf, y0, log_alpha), data = .x)),
     tidied = map(fit, tidy),
     augmented = map(fit, augment)
   )
 
-water_tidy |> 
-  unnest(tidied) |> 
-  select(sample, term, estimate) |> 
-  pivot_wider(names_from = term, values_from = estimate) |> 
+water_tidy |>
+  unnest(tidied) |>
+  select(sample, term, estimate) |>
+  pivot_wider(names_from = term, values_from = estimate) |>
   mutate(alpha = exp(log_alpha))
 ```
 
 ```{r}
-water_augmented <- water_tidy |> 
+water_augmented <- water_tidy |>
   unnest(augmented)
 
-water_augmented |> 
+water_augmented |>
   ggplot(aes(x = time, y = at18O, group = sample)) +
   geom_point(aes(color = sample)) +
   geom_line(aes(y = .fitted), color = "red")
@@ -103,31 +105,44 @@ params <- coef(water_fit_test)
 
 # Define the exponential decay function
 exp_decay <- function(t, yf, y0, alpha) {
-  yf + (y0 - yf) * exp(- alpha* t)
+  yf + (y0 - yf) * exp(-alpha * t)
 }
 
 test <- tibble(
   x = seq(0, 48, by = 1),
-  y = exp_decay(t = x, 
-                yf = params['yf'], 
-                y0 = params['y0'], 
-                alpha = exp(params['log_alpha']))
+  y = exp_decay(
+    t = x,
+    yf = params['yf'],
+    y0 = params['y0'],
+    alpha = exp(params['log_alpha'])
+  )
 )
 
 # Check if our fit looks good
-test |> ggplot(aes(x, y)) +
+test |>
+  ggplot(aes(x, y)) +
   geom_line() +
   geom_point(data = water_df, aes(x = t, y = y), color = "blue")
 # okay??? the fit looks fine?!?!
 
 # Integrate the function between t1 and t2
 integral <- function(t1, t2, yf, y0, alpha) {
-  integrate(function(t) exp_decay(t, yf, y0, alpha), lower = t1, upper = t2)$value
+  integrate(
+    function(t) exp_decay(t, yf, y0, alpha),
+    lower = t1,
+    upper = t2
+  )$value
 }
 
 # Example: integrate the function between t1 = 0 and t2 = 10
-integral_value <- integral(0, 48, yf = params['yf'], y0 = params['y0'], alpha = exp(params['log_alpha']))
+integral_value <- integral(
+  0,
+  48,
+  yf = params['yf'],
+  y0 = params['y0'],
+  alpha = exp(params['log_alpha'])
+)
 
 # divide by the total time
-integral_value/48
+integral_value / 48
 ```
