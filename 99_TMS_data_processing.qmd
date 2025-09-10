@@ -1,0 +1,185 @@
+---
+title: "04_IRMS Processing"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r}
+library(tidyverse)
+```
+
+# JCR
+
+
+```{r}
+# Define function for reading processed TMS data
+read_tms_processed <- function(filename, start = NA, end = NA) {
+  readxl::read_excel(filename) |>
+    janitor::clean_names() |>
+    rename(vwc_temp_corr = vol_moisture) |>
+    rename(vwc = volumetric_soil_moisture_without_temp_correction) |>
+    select(datetime, vwc, vwc_temp_corr) |>
+    mutate(datetime = lubridate::ymd_hm(datetime)) |>
+    mutate(datetime = with_tz(datetime, tzone = "America/Los_Angeles"))
+}
+
+filter_tms_window <- function(tms_data, precip_time) {
+  start = precip_time - lubridate::hours(24)
+  end = precip_time + lubridate::hours(54)
+  tms_data |>
+    filter(datetime >= start & datetime <= end)
+}
+```
+
+
+```{r}
+jr679 <- read_tms_processed(
+  "data/TAC_TOMST/JCR_ROS/JR_probe679_processed.xlsx"
+) |>
+  filter_tms_window(precip_time = lubridate::ymd_hms("2025-04-03 13:15:00")) |>
+  mutate(site = "JCR", condition = "ROS")
+
+
+jr679 |>
+  ggplot(
+    aes(
+      x = datetime,
+      y = vwc
+    )
+  ) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "Volumetric Water Content (VWC)"
+  ) +
+  theme(panel.grid.minor = element_blank())
+
+```
+
+
+```{r}
+js671 <- read_tms_processed(
+  "data/TAC_TOMST/JCR_SKY/JS_probe405_processed.xlsx"
+) |>
+  filter_tms_window(precip_time = lubridate::ymd_hms("2025-04-03 13:15:00")) |>
+  mutate(site = "JCR", condition = "SKY")
+
+js671 |>
+  ggplot(
+    aes(
+      x = datetime,
+      y = vwc
+    )
+  ) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "Volumetric Water Content (VWC)"
+  ) +
+  theme(panel.grid.minor = element_blank())
+```
+
+# LOM
+
+
+```{r}
+lr424 <- read_tms_processed(
+  "data/TAC_TOMST/LOM - ROS/LR_probe424_processed.xlsx"
+) |>
+  filter_tms_window(precip_time = lubridate::ymd_hms("2025-04-16 12:00:00")) |>
+  mutate(site = "LOM", condition = "ROS")
+
+lr424 |>
+  ggplot(
+    aes(
+      x = datetime,
+      y = vwc
+    )
+  ) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "Volumetric Water Content (VWC)"
+  ) +
+  theme(panel.grid.minor = element_blank())
+
+```
+
+
+```{r}
+ls413 <- read_tms_processed(
+  "data/TAC_TOMST/LOM - SKY/LS_probe672_processed.xlsx"
+) |>
+  filter_tms_window(precip_time = lubridate::ymd_hms("2025-04-16 12:00:00")) |>
+  mutate(site = "LOM", condition = "SKY")
+
+ls413 |>
+  ggplot(
+    aes(
+      x = datetime,
+      y = vwc
+    )
+  ) +
+  geom_line() +
+  scale_y_continuous(labels = scales::percent) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "Volumetric Water Content (VWC)"
+  ) +
+  theme(panel.grid.minor = element_blank())
+
+```
+
+# combined tibble
+
+
+```{r}
+combined <- bind_rows(
+  jr679,
+  js671,
+  lr424,
+  ls413
+)
+```
+
+
+```{r}
+combined |>
+  mutate(
+    site = case_when(
+      site == "JCR" ~ "Jalama Canyon Ranch",
+      site == "LOM" ~ "Loma Ridge"
+    ),
+    condition = case_when(
+      condition == "ROS" ~ "Drought",
+      condition == "SKY" ~ "Control"
+    )
+  ) |>
+  ggplot(
+    aes(
+      x = datetime,
+      y = vwc,
+      color = condition
+    )
+  ) +
+  geom_line(size = 1) +
+  scale_y_continuous(labels = scales::percent) +
+  facet_wrap(~site, scales = "free_x") +
+  theme_minimal() +
+  labs(
+    x = "",
+    y = "Volumetric Water Content (VWC)",
+    color = "Site and Condition"
+  ) +
+  theme(panel.grid.minor = element_blank())
+```
