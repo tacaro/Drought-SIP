@@ -1,0 +1,178 @@
+---
+title: "gRodon"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+```
+
+### Import from cache
+
+We start by importing the growth data we generated in the lipid SIP analysis. The column we're interested in is `u_d` or $\mu_d$ which is the growth rate in units of inverse days.
+
+```{r}
+growth <- read_rds("cache/lipid_sip_growth_data.rds")
+growth |> glimpse()
+```
+
+## Calculations
+
+Hoehler et al. (2023) find that there exists a linear relationship between an organism's biomass turnover (here, it's apparent "growth" rate) and its cellular energy flux, expressed as mass-specific power (W/g C).
+
+We consider the mass specific carbon turnover rate $\mu^*$ in mass carbon biomass synthesized $(C_{biosynthesis})$ per unit time, or $\mu^* = ((C_{biosynthesis} \times s^{-1} \times (C_{biomass})^{-1}$
+
+MSP is related to the biomass yield $(Y^* = C_{biosynthesis} /J)$ of an organism by:
+
+$$
+MSP =\frac{\mu^*}{Y^*}
+$$
+
+Hoehler et al. find that biomass yield (Y\*) for aerobic organisms is related to their mass-specific carbon turnover rate $(yr^{-1})$ by the relationship:
+
+$$
+Y^* = 0.019 \pm 0.008 \: g \: C \: kJ^{-1}
+$$
+
+Lipid-SIP-derived estimates of bulk community biomass turnover therefore can constrain the bulk soil MSP:
+
+$$
+MSP = \frac{\mu^* \: (yr)^{-1}}{0.019 \: gC \: (kJ)^{-1}} = \frac{\mu^* \: (yr)^{-1}}{1.9\times10^{-5} \: gC \: (J)^{-1}}
+$$
+
+```{r}
+growth <- growth |>
+  mutate(
+    u_yr = u_d * 365, # convert from per day to per year
+    u_sec = u_d / 86400, # convert from per day to per second
+    MSP_w_gc = u_sec / 1.9e-5 # convert to MSP (W/g C)
+  )
+
+```
+
+```{r}
+# visualize the distribution in u_yr
+growth |>
+  ggplot(aes(x = u_yr, fill = SIP_type)) +
+  geom_histogram(bins = 20, color = "white") +
+  scale_x_log10() +
+  theme_minimal() +
+  labs(
+    x = latex2exp::TeX("$\\mu^*$ (yr$^{-1}$)"),
+    y = "Count"
+  )
+```
+
+```{r}
+growth |>
+  ggplot(
+    aes(
+      y = u_yr,
+      x = MSP_w_gc,
+      color = SIP_type
+    )
+  ) +
+  geom_point() +
+  scale_x_log10() +
+  scale_y_log10() +
+  theme_minimal() +
+  labs(
+    y = latex2exp::TeX("$\\mu^*$ (yr$^{-1}$)"),
+    x = latex2exp::TeX("Mass-specific power (W/g C)")
+  )
+```
+
+Once we have our mass specific power estimates, we can estimate the respiration rate that is required to sustain this energetic flux. First, we must calculate total energy flux (without units of mass) estimated from the total biomass in the system. For this toy example, let's assume $10^9$ cells per g of soil, and cell-specific C biomass of 100 fg C:
+
+$$
+10^9 cells \: (g \: soil)^{-1} \times 10^2 \: fg \: C \: (cell)^{-1} = 10^{11} \: fg \: C = 10^{-4} \: g \: C
+$$
+
+Therefore, our total power (P) is:
+
+$$
+P = \frac{MSP \: (W / gC)}{10^{-4} \: gC}
+$$
+
+```{r}
+growth <- growth |>
+  mutate(
+    cells_per_g_soil = 1e9,
+    fgC_per_cell = 100,
+    biomass_gC_per_g_soil = cells_per_g_soil * fgC_per_cell * 1e-15, # convert fg to g
+    total_power_W_per_g_soil = MSP_w_gc * biomass_gC_per_g_soil, # multiply by biomass to get total power
+  )
+```
+
+From Hoehler et al., we apply an estimate of the $\Delta G_r$ of soil aerobic heterotrophic respiration of organic matter:
+
+$$
+\Delta G_r = -4.83 \times 10^{-5} \: J \: (mol \: C)^{-1}
+$$
+
+therefore, we can calculate the mol C respired per g of soil per second:
+
+$$
+mol \: C \:(sec)^{-1} = \frac{P}{\Delta G_r} = \frac{J \: (sec)^{-1}}{-4.83\times 10^{5} \: J \: (mol \: C)^{-1}}
+$$
+
+Our respirometry measurements (CO2 fluxes) are reported in units of µmol per square meter per second. To get to equal units, we consider a 10cm x 1m x 1m slab of soil with an assumed bulk density of 1.5 g/mL:
+
+$$
+\mu mol \: C \: (m^2 \cdot sec)^{-1} = \mu mol \: C \: (sec \cdot g_{soil})^{-1} \times \frac{1.5 g}{cm^{3}} \times 10^5 \: cm^3
+$$
+
+```{r}
+growth <- growth |>
+  mutate(
+    deltaG_r_J_per_molC = -4.83e5, # J per mol C
+    molC_respired_per_sec_per_g_soil = total_power_W_per_g_soil /
+      abs(deltaG_r_J_per_molC), # mol C per sec per g soil
+    umolC_respired_per_sec_per_g_soil = molC_respired_per_sec_per_g_soil * 1e6, # mol to umol
+    umolC_respired_per_sec_per_m2_soil = umolC_respired_per_sec_per_g_soil *
+      1.5 *
+      1e5 # g soil to cm3 to m2 (10cm depth, 1.5 g/cm3 bulk density)
+  )
+
+```
+
+```{r}
+growth |>
+  ggplot(aes(x = umolC_respired_per_sec_per_m2_soil, fill = SIP_type)) +
+  geom_histogram(bins = 20, color = "white") +
+  scale_x_log10() +
+  theme_minimal() +
+  labs(
+    y = "Count"
+  )
+```
+
+
+```{r}
+growth |>
+  ggplot(
+    aes(
+      y = umolC_respired_per_sec_per_m2_soil,
+      x = dt_hr,
+      shape = SIP_type
+    )
+  ) +
+  geom_point() +
+  facet_grid(site ~ drought) +
+  theme_minimal() +
+  labs(
+    x = "Incubation time (hr)",
+    y = latex2exp::TeX(
+      "Inferred Respiration rate $\\left( \\mu mol \\, C  \\, (m^2 \\, sec \\right) ^{-1}$"
+    )
+  )
+```
+
+## Compare to measured CO2 fluxes
+
+Finally, we can compare our inferred respiration rates to the measured CO2 fluxes from the soil cores. We expect that our inferred respiration rates should be lower than the measured CO2 fluxes, since some of the CO2 flux is likely derived from spontaneous, abiotic release of CO2 from soil.
+
