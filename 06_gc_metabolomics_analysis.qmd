@@ -1,0 +1,67 @@
+---
+title: "04_IRMS Processing"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r}
+library(tidyverse)
+
+```
+
+## Load Data
+
+
+```{r}
+gcms <- readxl::read_excel(
+  path = "data/metabolomics/mx 884963_Tristan Caro-Karthikeyan_soil extract_primary metabolism_GC-TOF MS_08-2025 submit_tidy.xlsx",
+  sheet = "submit",
+  skip = 8
+) |>
+  pivot_longer(
+    cols = -c(
+      `BinBase name`,
+      ret.index,
+      `quant mz`,
+      `mass spec`,
+      PubChem,
+      KEGG,
+      `InChI Key`
+    ),
+    names_to = "sample_id",
+    values_to = "peak_height"
+  ) |>
+  mutate(
+    site = case_when(
+      str_detect(sample_id, "JCR") ~ "JCR",
+      str_detect(sample_id, "LOM") ~ "LOM",
+    ),
+    condition = case_when(
+      str_detect(sample_id, "ROS") ~ "Drought",
+      str_detect(sample_id, "SKY") ~ "Control"
+    ),
+    dt = case_when(
+      str_detect(sample_id, "72hr") ~ "72hr",
+      str_detect(sample_id, "0hr") ~ "0hr",
+      str_detect(sample_id, "24hr") ~ "24hr"
+    ),
+    rep = case_when(
+      str_detect(sample_id, "rep1") ~ 1,
+      str_detect(sample_id, "rep2") ~ 2,
+      str_detect(sample_id, "rep3") ~ 3
+    )
+  ) |>
+  select(sample_id, site, condition, dt, rep, everything()) |>
+  rename(compound = `BinBase name`)
+```
+
+```{r}
+gcms |> pull(compound) |> unique() |> sort() |> view()
+```
+
+```{r}
+
+```
