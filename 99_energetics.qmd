@@ -151,7 +151,7 @@ growth |>
   )
 ```
 
-
+This plot should look similar in shape to the growth rate plot.
 ```{r}
 growth |>
   ggplot(
@@ -176,3 +176,116 @@ growth |>
 
 Finally, we can compare our inferred respiration rates to the measured CO2 fluxes from the soil cores. We expect that our inferred respiration rates should be lower than the measured CO2 fluxes, since some of the CO2 flux is likely derived from spontaneous, abiotic release of CO2 from soil.
 
+
+```{r}
+# make this tibble similar to our growth tibble
+co2_flux <- read_rds("cache/co2_flux_umol_m2_sec.rds") |>
+  rename(
+    dt_hr = time_after_rain,
+    drought = condition,
+    umol_emitted_per_sec_per_m2_soil = umol_m2_sec
+  ) |>
+  mutate(
+    site_abbrev = str_sub(site, 1, 1),
+    drought_abbrev = str_sub(drought, 1, 1) |> str_to_upper(),
+    SIP_type = case_when(
+      dt_hr == 0 ~ "Vapor-SIP",
+      dt_hr != 0 ~ "Liquid-SIP"
+    ),
+    SIP_type_abbrev = case_when(
+      SIP_type == "Vapor-SIP" ~ "V",
+      SIP_type == "Liquid-SIP" ~ "W"
+    ),
+    clean_id = paste0(site_abbrev, drought_abbrev, SIP_type_abbrev, dt_hr)
+  ) |>
+  select(
+    clean_id,
+    everything(),
+    -c(site_abbrev, drought_abbrev, SIP_type_abbrev)
+  )
+co2_flux |> glimpse()
+
+# take the mean of the vapor-SIP timepoints to get a single estimate of baseline respiration before rewetting
+time_zero_respiration <- co2_flux |>
+  filter(dt_hr == 0) |>
+  group_by(site, drought, SIP_type) |>
+  summarize(
+    t0_umol_emitted_per_sec_per_m2_soil = mean(
+      umol_emitted_per_sec_per_m2_soil,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  ) |>
+  mutate(
+    drought = case_when(
+      drought == "ROS" ~ "Drought",
+      drought == "sky" ~ "No Drought"
+    )
+  )
+```
+
+Join the two datasets and clean them up to be comparable for plotting.
+
+```{r}
+combined <- growth |>
+  filter(!dt_hr %in% c(3, 72)) |> # remove the 3hr and 72 hr timepoints because we don't have CO2 flux data for them
+  select(
+    clean_id,
+    site,
+    SIP_type,
+    drought,
+    dt_hr,
+    umolC_respired_per_sec_per_m2_soil
+  ) |>
+  left_join(
+    co2_flux |> select(clean_id, umol_emitted_per_sec_per_m2_soil),
+    by = "clean_id"
+  ) |>
+  left_join(time_zero_respiration, by = c("site", "drought", "SIP_type")) |>
+  mutate(
+    umol_emitted_per_sec_per_m2_soil = case_when(
+      is.na(umol_emitted_per_sec_per_m2_soil) ~
+        t0_umol_emitted_per_sec_per_m2_soil,
+      TRUE ~ umol_emitted_per_sec_per_m2_soil
+    )
+  ) |>
+  select(-t0_umol_emitted_per_sec_per_m2_soil) |>
+  pivot_longer(
+    cols = c(
+      umolC_respired_per_sec_per_m2_soil,
+      umol_emitted_per_sec_per_m2_soil
+    ),
+    names_to = "type",
+    values_to = "umol_C_per_sec_per_m2_soil"
+  ) |>
+  mutate(
+    type = case_when(
+      type == "umolC_respired_per_sec_per_m2_soil" ~
+        "Inferred Respiration Rate",
+      type == "umol_emitted_per_sec_per_m2_soil" ~ "Measured CO2 Flux"
+    )
+  )
+```
+
+Plot it
+
+
+```{r}
+combined |>
+  filter(SIP_type != "Vapor-SIP") |> # only plot liquid SIP data
+  ggplot(
+    aes(
+      y = umol_C_per_sec_per_m2_soil,
+      x = as.factor(dt_hr),
+      fill = type
+    )
+  ) +
+  geom_col(
+    color = "white",
+    position = position_dodge(width = 0.5),
+    width = 0.5
+  ) +
+  facet_grid(site ~ drought) +
+  theme_minimal()
+
+```
