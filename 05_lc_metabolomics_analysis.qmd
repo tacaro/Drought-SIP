@@ -1,0 +1,275 @@
+---
+title: "04_IRMS Processing"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r}
+library(tidyverse)
+library(vegan)
+library(goeveg)
+library(ggbiplot)
+```
+
+# LC-MS dataset
+
+```{r}
+# load in and tidy lcms metadata
+lcms_metadata <- readxl::read_excel(
+  "data/metabolomics/mx 885019_Caro_soil extract_HILIC_submit 08-2025_tidy.xlsx",
+  sheet = "Metadata"
+) |>
+  filter(Label == "Sample #") |>
+  pivot_longer(
+    cols = -Label,
+    values_to = "sample_number",
+    names_to = "sample_id"
+  ) |>
+  select(-Label) |>
+  filter(sample_number != "Blank", sample_number != "Pool")
+
+
+lcms <- readxl::read_excel(
+  "data/metabolomics/mx 885019_Caro_soil extract_HILIC_submit 08-2025_tidy.xlsx"
+) |>
+  janitor::clean_names() |>
+  # remove blanks and pools
+  select(!contains("blank")) |>
+  select(!contains("pool")) |>
+  # make sure all values are numeric
+  mutate(
+    across(.cols = contains("x"), .fns = as.numeric)
+  ) |>
+  pivot_longer(
+    cols = contains("x"),
+    values_to = "peak_height",
+    names_to = "sample_number"
+  ) |>
+  mutate(m_z = as.numeric(m_z)) |>
+  mutate(
+    sample_number = str_remove(sample_number, "x")
+  ) |>
+  left_join(lcms_metadata, by = "sample_number") |>
+  # add in metadata
+  mutate(
+    site = case_when(
+      str_detect(sample_id, "JCR") ~ "JCR",
+      str_detect(sample_id, "LOM") ~ "LOM",
+    ),
+    condition = case_when(
+      str_detect(sample_id, "ROS") ~ "Drought",
+      str_detect(sample_id, "SKY") ~ "Control"
+    ),
+    dt = case_when(
+      str_detect(sample_id, "72hr") ~ "72hr",
+      str_detect(sample_id, "0hr") ~ "0hr",
+      str_detect(sample_id, "24hr") ~ "24hr"
+    ),
+    rep = case_when(
+      str_detect(sample_id, "rep1") ~ 1,
+      str_detect(sample_id, "rep2") ~ 2,
+      str_detect(sample_id, "rep3") ~ 3
+    )
+  )
+
+```
+
+
+```{r}
+p_lcms_tile <- lcms |>
+  ggplot(
+    aes(
+      y = metabolite_name,
+      x = sample_id,
+      fill = peak_height,
+    )
+  ) +
+  geom_tile() +
+  scale_fill_viridis_c(trans = "log10") +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    axis.text.y = element_blank()
+  )
+
+p_lcms_tile
+
+ggsave(
+  p_lcms_tile,
+  filename = "fig_output/lcms_tile_plot.pdf",
+  width = 10,
+  height = 12
+)
+```
+
+```{r}
+lcms |>
+  ggplot(
+    aes(
+      x = sample_id,
+      y = peak_height,
+      label = metabolite_name,
+      color = condition,
+      shape = site
+    )
+  ) +
+  geom_point() +
+  scale_shape_manual(values = c(1, 5)) +
+  ggrepel::geom_label_repel(
+    data = lcms |>
+      filter(peak_height > 1.5e6),
+    size = 3,
+    nudge_x = 1
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1),
+    #legend.position = "none"
+  )
+#plotly::ggplotly()
+```
+
+```{r}
+lcms |>
+  filter(metabolite_name == "betaine") |>
+  filter(!is.na(dt)) |>
+  ggplot(
+    aes(
+      x = dt,
+      y = peak_height,
+      color = condition,
+      shape = site
+    )
+  ) +
+  #geom_boxplot() +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(vars(site), scales = "free_y") +
+  scale_color_manual(values = c("Control" = "black", "Drought" = "red")) +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_blank()
+  )
+```
+
+Convert data to matrix format for NMDS
+
+```{r}
+lcms.nmds <- lcms |>
+  select(
+    sample_id,
+    metabolite_name,
+    peak_height,
+    site,
+    condition,
+    dt,
+    rep
+  ) |>
+  mutate_at(vars(site, condition, dt, rep), as.factor) |>
+  filter(
+    !is.na(metabolite_name),
+    !is.na(site),
+    !is.na(condition)
+  ) |>
+  pivot_wider(
+    names_from = sample_id,
+    values_from = peak_height
+  )
+
+
+```
+
+
+```{r}
+lcms.wide <- lcms |>
+  select(
+    sample_id,
+    site,
+    condition,
+    dt,
+    rep,
+    metabolite_name,
+    peak_height
+  ) |>
+  filter(!is.na(metabolite_name)) |>
+  pivot_wider(
+    id_cols = c(sample_id, site, condition, dt, rep),
+    names_from = metabolite_name,
+    values_from = peak_height
+  )
+
+
+lcms.pca <- prcomp(
+  lcms.wide |>
+    # extract the numeric columns for PCA
+    select(-c(sample_id, site, condition, dt, rep)) |>
+    # missing values are replaced with 0
+    mutate(across(everything(), ~ replace_na(.x, 0)))
+)
+plot(lcms.pca)
+
+screeplot(lcms.pca, type = "line")
+
+p1 <- ggbiplot(
+  lcms.pca,
+  groups = lcms.wide$condition,
+  var.axes = FALSE
+) +
+  theme_bw()
+
+p2 <- ggbiplot(
+  lcms.pca,
+  groups = lcms.wide$site,
+  var.axes = FALSE
+) +
+  scale_color_brewer(palette = "Set1") +
+  theme_bw()
+
+cowplot::plot_grid(p1, p2, ncol = 2)
+```
+
+biplot tutorial
+
+```{r}
+data(crime)
+
+crime |> knitr::kable()
+
+crime.pca <-
+  crime |>
+  dplyr::select(where(is.numeric)) |>
+  prcomp(scale. = TRUE)
+
+crime.pca
+
+
+ggbiplot(
+  crime.pca,
+  labels = crime$st,
+  circle = TRUE,
+  varname.size = 4,
+  varname.color = "red"
+)
+
+# The groups argument allows the observations to colored by group and to summarized by groups.
+crime.pca <- reflect(crime.pca)
+
+ggbiplot(
+  crime.pca,
+  groups = crime$region,
+  labels = crime$st,
+  labels.size = 4,
+  var.factor = 1.4,
+  ellipse = TRUE,
+  ellipse.level = 0.5,
+  ellipse.alpha = 0.1,
+  circle = TRUE,
+  varname.size = 4,
+  varname.color = "black"
+) +
+  labs(fill = "Region", color = "Region") +
+  theme(legend.direction = 'horizontal', legend.position = 'top')
+```
