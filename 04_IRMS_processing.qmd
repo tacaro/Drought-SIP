@@ -1,0 +1,572 @@
+---
+title: "04_IRMS Processing"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+library(pilot)
+
+source("source/F2H_to_d2H_VSMOW.R")
+source("source/d2H_VSMOW_to_F2H.R")
+source("source/calculate_mu.R")
+source("source/calculate_sigma_mu.R")
+```
+
+import data
+
+```{r}
+# note the qtegra colnames that we'll re-insert into our trimmed xl file
+qtegra_colnames <- readxl::read_excel(
+  "data/Athena_Data/qtegra_col_names.xlsx"
+) |>
+  pull(col_id)
+
+import_tidy_qtegra_export <- function(file_path) {
+  readxl::read_excel(
+    file_path,
+    skip = 4, # skip 4 rows of the qtegra output so it's just raw data
+    col_names = qtegra_colnames, # put the col names back in at the top
+  ) |>
+    janitor::clean_names(replace = c("\u00b5" = "u")) |> # remove punctuation and spaces from colnames
+    # fill() takes blank data values and fills from the top down
+    fill(
+      c(
+        index,
+        user_name,
+        start_time,
+        stop_time,
+        status,
+        mark_to_pause,
+        label,
+        comment,
+        run_id,
+        analysis_no,
+        evaluate,
+        sample_type,
+        vial,
+        inject_volume_ul,
+        inject
+      ),
+      .direction = "down"
+    ) |>
+    select(
+      label,
+      compound_name_2_00_m_z,
+      retention_time_2_00_m_z,
+      peak_raw_area_2_00_m_z,
+      h2_d2h
+    ) |>
+    rename(
+      rt_2mz_sec = retention_time_2_00_m_z,
+      peak_area_2mz = peak_raw_area_2_00_m_z,
+      d2H = h2_d2h,
+      compound = compound_name_2_00_m_z,
+      sample_id = label
+    )
+}
+
+import_tidy_qtegra_export(
+  "data/Athena_Data/250623_TAC_soil_SIP_SET_1_FAMES.xlsx"
+)
+
+
+files_to_import = list.files(
+  path = "data/Athena_Data",
+  pattern = "SET",
+  full.names = TRUE
+)
+
+all_data <- files_to_import |>
+  map_df(~ import_tidy_qtegra_export(.x) |> mutate(source = basename(.x)))
+```
+
+## Separate and reduce data
+
+```{r}
+F8_data <- all_data |>
+  filter(str_detect(sample_id, "F8"))
+
+SIP_data <- all_data |>
+  filter(!str_detect(sample_id, "F8")) |>
+  filter(
+    !str_detect(sample_id, "blank"),
+    !str_detect(sample_id, "CLEAN"),
+    !str_detect(sample_id, "BAME")
+  ) |>
+  mutate(
+    clean_id = str_sub(sample_id, end = 5) |> str_remove("_")
+  ) |>
+  mutate(
+    site = case_when(
+      str_sub(clean_id, end = 1) == "J" ~ "JCR",
+      str_sub(clean_id, end = 1) == "L" ~ "LOM",
+    ),
+    drought = case_when(
+      str_sub(clean_id, start = 2, end = 2) == "R" ~ "Drought",
+      str_sub(clean_id, start = 2, end = 2) == "S" ~ "No Drought",
+    ),
+    SIP_type = case_when(
+      str_sub(clean_id, start = 3, end = 3) == "W" ~ "Liquid-SIP",
+      str_sub(clean_id, start = 3, end = 3) == "V" ~ "Vapor-SIP",
+    ),
+    dt_hr = parse_number(clean_id),
+    replicate = case_when(
+      str_detect(sample_id, "_A") ~ "A",
+      str_detect(sample_id, "_B") ~ "B"
+    )
+  ) |>
+  select(
+    site,
+    drought,
+    SIP_type,
+    everything()
+  ) |>
+  # take mean of replicates
+  group_by(clean_id, SIP_type, site, drought, dt_hr, compound) |>
+  #select(-c(rt_2mz_sec, peak_area_2mz)) |>
+  dplyr::summarise(
+    d2H = mean(d2H, na.rm = TRUE),
+    rt = mean(rt_2mz_sec, na.rm = TRUE),
+    area2 = mean(peak_area_2mz, na.rm = TRUE)
+  ) |>
+  ungroup() |>
+  # remove H2 and standards
+  filter(
+    !compound %in% c("H2", "21:0 (STD)", "23:0 (STD)"),
+    !is.na(compound)
+  ) |>
+  # area cutoff
+  filter(area2 > 1)
+
+
+# print clean names
+SIP_data |> pull(clean_id) |> unique()
+
+# check compounds
+SIP_data |> pull(compound) |> unique()
+
+# histogram of areas
+SIP_data |>
+  ggplot() +
+  aes(
+    x = area2
+  ) +
+  geom_histogram(binwidth = 0.25) +
+  pilot::theme_pilot()
+```
+
+### Inspect d2H
+
+```{r}
+# inspect the data
+SIP_data |>
+  filter(SIP_type == "Liquid-SIP") |>
+  ggplot(
+    aes(
+      x = dt_hr,
+      y = d2H,
+      color = d2H,
+      group = compound
+    )
+  ) +
+  geom_point(shape = 1) +
+  geom_line() +
+  scale_color_viridis_c(end = 0.9, option = "inferno") +
+  facet_grid(vars(SIP_type, site, drought)) +
+  pilot::theme_pilot() +
+  theme(
+    legend.position = "none"
+  )
+```
+
+```{r}
+SIP_data |>
+  filter(SIP_type == "Vapor-SIP") |>
+  ggplot(
+    aes(
+      x = dt_hr,
+      y = d2H,
+      color = d2H,
+      group = compound
+    )
+  ) +
+  geom_point(shape = 1) +
+  geom_line() +
+  scale_color_viridis_c(end = 0.9, option = "inferno") +
+  facet_grid(vars(SIP_type, site, drought)) +
+  pilot::theme_pilot() +
+  theme(
+    legend.position = "none"
+  )
+```
+
+## calculate weighted mean
+
+```{r}
+SIP_data_wm <- SIP_data |>
+  group_by(clean_id, SIP_type, site, drought, dt_hr) |>
+  dplyr::summarise(
+    d2H = sum(area2 * d2H) / sum(area2)
+  ) |>
+  ungroup() |>
+  mutate(compound = "Weighted Mean") |>
+  bind_rows(SIP_data) |>
+  mutate(is_wm = if_else(compound == "Weighted Mean", TRUE, FALSE))
+
+SIP_data_wm |>
+  filter(SIP_type == "Liquid-SIP") |>
+  ggplot(
+    aes(
+      x = dt_hr,
+      y = d2H,
+      group = compound
+    )
+  ) +
+  geom_line(data = function(df) df |> filter(is_wm), color = "red") +
+  geom_point(shape = 1, size = 2) +
+  facet_grid(vars(SIP_type, site, drought)) +
+  pilot::theme_pilot() +
+  theme(
+    legend.position = "none"
+  )
+```
+
+## Estimate F_L based on soil water content
+
+```{r}
+gwc <- readxl::read_excel(
+  "data/sample_matrix_complete.xlsx",
+  sheet = "Gravimetric Water Content"
+) |>
+  filter(
+    sample_id != "EXAMPLE"
+  ) |>
+  janitor::clean_names() |>
+  filter(pre_or_post_rewetting == "PRE") |>
+  select(
+    sample_id,
+    site,
+    condition,
+    gmc_percent
+  ) |>
+  mutate(
+    gwc = gmc_percent / 100, # convert to fraction
+    ml_water_in_soil = 6 * gwc, # 6g soil
+    F2H_soil_water = 0.00015576, # using VSMOW as placeholder
+    ml_tracer_added = 6,
+    F2H_tracer = 0.005,
+    ml_incubation_soln = ml_tracer_added + ml_water_in_soil,
+    F2H_incubation = ((ml_water_in_soil * F2H_soil_water) +
+      (ml_tracer_added * F2H_tracer)) /
+      ml_incubation_soln,
+    drought = case_when(
+      condition == "ROS" ~ "Drought",
+      condition == "SKY" ~ "No Drought"
+    )
+  )
+
+gwc_mini <- gwc |>
+  select(site, drought, FL = F2H_incubation)
+```
+
+## Growth estimates
+
+```{r}
+F0_data <- SIP_data_wm |>
+  filter(compound == "Weighted Mean") |>
+  filter(dt_hr == 0) |>
+  mutate(F0 = d2H_VSMOW_to_F2H(d2H, permil = TRUE)) |>
+  select(site, drought, F0)
+
+growth_data <- SIP_data_wm |>
+  filter(SIP_type == "Liquid-SIP") |>
+  filter(compound == "Weighted Mean") |>
+  mutate(
+    F2H = d2H_VSMOW_to_F2H(d2H, permil = TRUE)
+  ) |>
+  # add in label FL data
+  left_join(gwc_mini, by = join_by(site, drought)) |>
+  # add in F0 data
+  left_join(F0_data, by = join_by(site, drought)) |>
+  # remove t0 data
+  filter(dt_hr != 0) |>
+  # note what the previous time step is:
+  mutate(
+    t_minus_1 = case_when(
+      dt_hr == 1 ~ 0,
+      dt_hr == 3 ~ 1,
+      dt_hr == 6 ~ 3,
+      dt_hr == 24 ~ 6,
+      dt_hr == 48 ~ 24,
+      dt_hr == 72 ~ 48
+    )
+  ) |>
+  # calculate growth rate in d^-1
+  mutate(
+    u_d = calculate_mu(
+      a = 0.71,
+      F2 = F2H,
+      F1 = F0,
+      FL = FL,
+      t2 = dt_hr / 24,
+      t1 = t_minus_1 / 24
+    ),
+    u_d = if_else(u_d < 0, 0, u_d),
+    s_u_d = calculate_sigma_mu(
+      a = 0.71,
+      F2 = F2H,
+      F1 = F0,
+      FL = FL,
+      t2 = dt_hr / 24,
+      t1 = t_minus_1 / 24,
+      sigma_a = 0.17,
+      sigma_F1 = 0,
+      sigma_FL = 0
+    ),
+    gen_d = log(2) / u_d
+  )
+```
+
+plot growth
+
+```{r}
+p_growth <- growth_data |>
+  filter(SIP_type == "Liquid-SIP") |>
+  mutate(
+    site = case_when(
+      site == "JCR" ~ "Cattle Pasture",
+      site == "LOM" ~ "Grassland"
+    )
+  ) |>
+  ggplot(
+    aes(
+      x = dt_hr,
+      y = u_d
+    )
+  ) +
+  geom_line(linetype = "dotted") +
+  geom_pointrange(
+    aes(
+      ymin = u_d - s_u_d / 2,
+      ymax = u_d + s_u_d / 2,
+      fill = gen_d
+    ),
+    shape = 21,
+    color = "black",
+  ) +
+  scale_y_continuous() +
+  scale_fill_viridis_c(begin = 1, end = 0) +
+  facet_grid(site ~ drought, scale = "free_y") +
+  labs(
+    x = "Time after rewetting (hr)",
+    y = latex2exp::TeX("Growth Rate $(d^{-1})$"),
+    fill = "Generation Time (days)"
+  ) +
+  pilot::theme_pilot() +
+  guides(
+    fill = guide_colourbar(title.position = "left")
+  ) +
+  theme(
+    legend.position = "left",
+    legend.background = element_rect(color = "black", linewidth = 0.2),
+    legend.key.width = unit(0.2, "cm"),
+    legend.key.height = unit(1, "cm"),
+    legend.title = element_text(hjust = 0.5, angle = 90)
+  )
+p_growth
+
+# ggsave(
+#   plot = p_growth,
+#   filename = "fig_output/growth_wetsip.png",
+#   dpi = 1000,
+#   height = 5,
+#   width = 6
+# )
+```
+
+```{r}
+a <- tibble(
+  at2H = c((0.0001557357 * 100), 0.05, 0.1, 0.25, 0.5),
+  F2H = at2H / 100,
+  d2H_VSMOW = F2H_to_d2H_VSMOW(F2H = F2H, permil = TRUE)
+)
+```
+
+# Vapor SIP data
+
+now we calculate vapor SIP data using the same approach as above, but with the vapor FL values
+
+```{r}
+vapor_FL <- readxl::read_excel("data_output/TAC_vapor_SIP_summary.xlsx") |>
+  rename(clean_id = sample_id) |>
+  select(-c(t, condition))
+
+vapor <- SIP_data |>
+  filter(SIP_type == "Vapor-SIP")
+
+vapor_wm <- SIP_data |>
+  filter(SIP_type == "Vapor-SIP") |>
+  group_by(clean_id, SIP_type, site, drought, dt_hr) |>
+  dplyr::summarise(
+    d2H = sum(area2 * d2H) / sum(area2)
+  ) |>
+  ungroup() |>
+  mutate(compound = "Weighted Mean") |>
+  bind_rows(vapor) |>
+  mutate(is_wm = if_else(compound == "Weighted Mean", TRUE, FALSE))
+
+vapor_wm |>
+  ggplot(
+    aes(
+      x = dt_hr,
+      y = d2H,
+      group = compound
+    )
+  ) +
+  geom_point() +
+  geom_line(data = function(df) df |> filter(is_wm), color = "red") +
+  facet_grid(vars(site, drought), scale = "free_y")
+```
+
+## calculate vapor-SIP growth
+
+```{r}
+vapor_growth_data <- vapor_wm |>
+  # join in the vapor FL data from `03_tracer_calcs.qmd`
+  left_join(vapor_FL, by = join_by(clean_id)) |>
+  filter(compound == "Weighted Mean") |>
+  mutate(
+    F2H = d2H_VSMOW_to_F2H(d2H, permil = TRUE),
+    FL = sw_F2H, # use the vapor FL value
+  ) |>
+  # add in F0 data
+  left_join(F0_data, by = join_by(site, drought)) |>
+  # remove t0 data
+  filter(dt_hr != 0) |>
+  # note what the previous time step is:
+  mutate(
+    t_minus_1 = case_when(
+      dt_hr == 1 ~ 0,
+      dt_hr == 3 ~ 1,
+      dt_hr == 6 ~ 3,
+      dt_hr == 24 ~ 6,
+      dt_hr == 48 ~ 24,
+      dt_hr == 72 ~ 48
+    )
+  ) |>
+  # calculate growth rate in d^-1
+  mutate(
+    u_d = calculate_mu(
+      a = 0.71,
+      F2 = F2H,
+      F1 = F0,
+      FL = FL,
+      t2 = dt_hr / 24,
+      t1 = t_minus_1 / 24
+    ),
+    u_d = if_else(u_d < 0, 0, u_d),
+    s_u_d = calculate_sigma_mu(
+      a = 0.71,
+      F2 = F2H,
+      F1 = F0,
+      FL = FL,
+      t2 = dt_hr / 24,
+      t1 = t_minus_1 / 24,
+      sigma_a = 0.17,
+      sigma_F1 = 0,
+      sigma_FL = 0
+    ),
+    gen_d = log(2) / u_d
+  )
+```
+
+```{r}
+p_vapor_growth <- vapor_growth_data |>
+  bind_rows(growth_data) |>
+  mutate(
+    site = case_when(
+      site == "JCR" ~ "Cattle Pasture",
+      site == "LOM" ~ "Grassland"
+    )
+  ) |>
+  ggplot(
+    aes(
+      x = dt_hr,
+      y = u_d,
+      shape = SIP_type
+    )
+  ) +
+  geom_line(linetype = "dotted") +
+  geom_pointrange(
+    aes(
+      ymin = u_d - s_u_d / 2,
+      ymax = u_d + s_u_d / 2,
+      fill = gen_d
+    ),
+    color = "black",
+  ) +
+  scale_y_continuous() +
+  scale_shape_manual(values = c(21, 22)) +
+  scale_fill_viridis_c(
+    begin = 1,
+    end = 0,
+    trans = "log10"
+  ) +
+  #scale_fill_gradient(trans = "log10", low = "white", high = "darkblue") +
+  facet_grid(site ~ drought, scale = "free_y") +
+  labs(
+    x = "Time after rewetting (hr)",
+    y = latex2exp::TeX("Growth Rate $(d^{-1})$"),
+    fill = "Generation Time (days)"
+  ) +
+  theme_minimal() +
+  guides(
+    fill = guide_colourbar(title.position = "left"),
+    shape = "none"
+  ) +
+  theme(
+    legend.position = "bottom",
+    legend.background = element_rect(color = "black", linewidth = 0.2),
+    legend.key.height = unit(0.2, "cm"),
+    legend.key.width = unit(1, "cm"),
+    legend.title = element_text(hjust = 0.5, vjust = 1),
+    panel.grid.minor = element_blank()
+  )
+p_vapor_growth
+```
+
+```{r}
+# p_vapor_growth |>
+#   ggsave(
+#     filename = "fig_output/vapor_growth.pdf",
+#     height = 5,
+#     width = 6
+#   )
+```
+
+# Cache
+
+```{r}
+growth_combined_tbl <- vapor_growth_data |>
+  bind_rows(growth_data) |>
+  select(
+    clean_id,
+    SIP_type,
+    site,
+    drought,
+    dt_hr,
+    u_d,
+    s_u_d,
+    gen_d
+  )
+
+saveRDS(
+  growth_combined_tbl,
+  file = "cache/lipid_sip_growth_data.rds"
+)
+```
