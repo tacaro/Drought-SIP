@@ -1,0 +1,875 @@
+---
+title: "04_IRMS Processing"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+source("source/d2H_VSMOW_to_F2H.R")
+library(pracma)
+library(tidymodels)
+library(broom)
+```
+
+```{r}
+RR_map <- readxl::read_excel(
+  "data/Picarro_d2H/Picarro_autosampler_pos.xlsx",
+  sheet = "RR_samples"
+)
+TAC_lsip_map <- readxl::read_excel(
+  "data/Picarro_d2H/Picarro_autosampler_pos.xlsx",
+  sheet = "TAC_wet_SIP"
+)
+TAC_vsip_map <- readxl::read_excel(
+  "data/Picarro_d2H/Picarro_autosampler_pos.xlsx",
+  sheet = "TAC_vapor_SIP"
+)
+```
+
+## Process RR samples
+
+```{r}
+rr1 <- read_csv(
+  "data/Picarro_d2H/RR_samples/HKDS2133_IsoWater_20250722_203243.csv"
+)
+rr2 <- read_csv(
+  "data/Picarro_d2H/RR_samples/HKDS2133_IsoWater_20250724_160710.csv"
+)
+rr3 <- read_csv(
+  "data/Picarro_d2H/RR_samples/HKDS2133_IsoWater_20250725_030154.csv"
+)
+
+rr_full <- bind_rows(rr1, rr2, rr3) |>
+  janitor::clean_names() |>
+  mutate(
+    AS_position = as.numeric(str_extract(port, "(?<=-).*"))
+  ) |>
+  select(
+    time_code,
+    port,
+    AS_position,
+    d_d_h_mean,
+    d_d_h_sd,
+    h2o_mean,
+    ignore,
+    good
+  ) |>
+  left_join(RR_map, by = join_by(AS_position)) |>
+  filter(ignore == 0) |> # remove 'conditioning' injections
+  group_by(sample_id) |>
+  summarise(
+    d2H_mn = mean(d_d_h_mean, na.rm = TRUE),
+    d2H_sd = mean(d_d_h_sd, na.rm = TRUE)
+  ) |>
+  mutate(
+    is_std = if_else(str_detect(sample_id, "STD"), true = TRUE, false = FALSE),
+    d2H.lower = d2H_mn - d2H_sd,
+    d2H.upper = d2H_mn + d2H_sd,
+    F2H = d2H_VSMOW_to_F2H(d2H_mn, permil = TRUE),
+    F2H.upper = d2H_VSMOW_to_F2H(d2H.upper, permil = TRUE),
+    F2H.lower = d2H_VSMOW_to_F2H(d2H.lower, permil = TRUE)
+  )
+```
+
+```{r}
+rr_full |>
+  ggplot(
+    aes(
+      x = sample_id,
+      y = F2H,
+      color = is_std
+    )
+  ) +
+  geom_pointrange(
+    aes(
+      ymin = F2H.lower,
+      ymax = F2H.upper
+    ),
+    shape = 1
+  ) +
+  labs(
+    x = "Sample ID"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
+  )
+```
+
+```{r}
+rr_full |> filter(!is_std) |> writexl::write_xlsx("data_output/RR_SIP_F2H.xlsx")
+```
+
+## Process TAC samples
+
+### wet SIP
+
+```{r}
+tac_wsip <- read_csv(
+  "data/Picarro_d2H/TAC_water_SIP/HKDS2133_IsoWater_20250726_224434.csv"
+) |>
+  janitor::clean_names() |>
+  mutate(
+    AS_position = as.numeric(str_extract(port, "(?<=-).*"))
+  ) |>
+  select(
+    time_code,
+    port,
+    AS_position,
+    d_d_h_mean,
+    d_d_h_sd,
+    h2o_mean,
+    ignore,
+    good
+  ) |>
+  left_join(TAC_lsip_map, by = join_by(AS_position)) |>
+  filter(ignore == 0) |> # remove 'conditioning' injections
+  group_by(sample_id) |>
+  summarise(
+    d2H_mn = mean(d_d_h_mean, na.rm = TRUE),
+    d2H_sd = mean(d_d_h_sd, na.rm = TRUE)
+  ) |>
+  mutate(
+    is_std = if_else(str_detect(sample_id, "STD"), true = TRUE, false = FALSE),
+    d2H.lower = d2H_mn - d2H_sd,
+    d2H.upper = d2H_mn + d2H_sd,
+    F2H = d2H_VSMOW_to_F2H(d2H_mn, permil = TRUE),
+    F2H.upper = d2H_VSMOW_to_F2H(d2H.upper, permil = TRUE),
+    F2H.lower = d2H_VSMOW_to_F2H(d2H.lower, permil = TRUE)
+  )
+```
+
+```{r}
+tac_wsip |>
+  filter(is_std) |>
+  ggplot(
+    aes(
+      x = sample_id,
+      y = F2H
+    )
+  ) +
+  geom_pointrange(
+    aes(
+      ymin = F2H.lower,
+      ymax = F2H.upper
+    ),
+    shape = 1
+  ) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "Sample ID"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
+  )
+```
+
+### vapor SIP
+
+```{r}
+tac_vsip <- read_csv(
+  file = "data/Picarro_d2H/TAC_vapor_SIP/HKDS2133_IsoWater_20250729_181246.csv"
+) |>
+  janitor::clean_names() |>
+  mutate(
+    AS_position = as.numeric(str_extract(port, "(?<=-).*"))
+  ) |>
+  select(
+    time_code,
+    port,
+    AS_position,
+    d_d_h_mean,
+    d_d_h_sd,
+    h2o_mean,
+    ignore,
+    good
+  ) |>
+  left_join(TAC_vsip_map, by = join_by(AS_position)) |>
+  filter(ignore == 0) |> # remove 'conditioning' injections
+  group_by(sample_id) |>
+  summarise(
+    d2H_mn = mean(d_d_h_mean, na.rm = TRUE),
+    d2H_sd = mean(d_d_h_sd, na.rm = TRUE)
+  ) |>
+  mutate(
+    is_std = if_else(str_detect(sample_id, "STD"), true = TRUE, false = FALSE),
+    d2H.lower = d2H_mn - d2H_sd,
+    d2H.upper = d2H_mn + d2H_sd,
+    F2H = d2H_VSMOW_to_F2H(d2H_mn, permil = TRUE),
+    F2H.upper = d2H_VSMOW_to_F2H(d2H.upper, permil = TRUE),
+    F2H.lower = d2H_VSMOW_to_F2H(d2H.lower, permil = TRUE)
+  ) |>
+  # correct for dilution
+  mutate(
+    F2H = F2H * 50,
+    F2H.upper = F2H.upper * 50,
+    F2H.lower = F2H.lower * 50
+  ) |>
+  mutate(
+    inc_time_hr = parse_number(sample_id),
+    sample_condition = str_remove_all(sample_id, "[0-9]")
+  )
+```
+
+```{r}
+tac_vsip |>
+  filter(sample_condition != "STD") |>
+  ggplot(
+    aes(
+      x = inc_time_hr,
+      y = F2H,
+      color = sample_condition
+    )
+  ) +
+  geom_pointrange(
+    aes(
+      ymin = F2H.lower,
+      ymax = F2H.upper
+    ),
+    shape = 1
+  ) +
+  facet_wrap(vars(sample_condition), scale = "free_y") +
+  labs(
+    x = "Sample ID"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
+  )
+```
+
+```{r}
+equil_data <- tac_vsip |>
+  filter(sample_condition != "STD") |>
+  select(sample_id, sample_condition, F2H, inc_time_hr)
+```
+
+### JRV data
+
+```{r}
+JRV_eq <- equil_data |>
+  filter(sample_condition == "JRV", inc_time_hr != 24) |>
+  select(-sample_id)
+# define the model
+JRV_curve <- formula(F2H ~ Vmax + ((Vin - Vmax) * (exp(-Km * inc_time_hr))))
+
+JRV_fit <- nls(
+  JRV_curve,
+  JRV_eq,
+  start = list(Vin = 0.115, Vmax = 0.105, Km = 0.05)
+)
+summary(JRV_fit)
+
+# now predict:
+# the predicted atm%
+pred_range <- seq(0, 72, 0.1)
+
+# Then, calculate the predicted atm% using the predict function
+JRV_predicted <- predict(JRV_fit, list(inc_time_hr = pred_range))
+JRV_pred_data <- tibble(pred_range, JRV_predicted)
+
+# Best fit values of Km and Vmax obtained by coef function, stored in bestFitVals
+JRV_coefs <- JRV_fit |> broom::tidy()
+
+# plot the curve
+JRV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  geom_line(
+    data = JRV_pred_data,
+    aes(x = pred_range, y = JRV_predicted),
+    color = "red"
+  ) +
+  theme_bw()
+
+# Define the exponential decay function
+exp_decay <- function(t, yf, y0, alpha) {
+  yf + (y0 - yf) * exp(-alpha * t)
+}
+
+JRV_yf <- JRV_coefs |> filter(term == "Vmax") |> pull(estimate)
+JRV_y0 <- JRV_coefs |> filter(term == "Vin") |> pull(estimate)
+JRV_alpha <- JRV_coefs |> filter(term == "Km") |> pull(estimate)
+
+# Define the soil water equilibration function
+JRV_soil_water_equil <- function(x) {
+  JRV_yf + (0.0156 - JRV_yf) * exp(-JRV_alpha * x)
+}
+
+
+# define fn for Integrating the function between t1 and t2
+JRV_calc_integral <- function(t1, t2, yf, y0, alpha) {
+  val = integrate(
+    JRV_soil_water_equil,
+    lower = t1,
+    upper = t2
+  )$value
+  return(val / (t2 - t1))
+}
+
+JRV_val <- JRV_calc_integral(
+  t1 = 0,
+  t2 = 72,
+  yf = JRV_yf,
+  y0 = JRV_y0,
+  alpha = JRV_alpha
+)
+
+# create a tibble with the time points for soil water equilibration
+# integrated for each time step
+JRV_sw <- tibble(
+  t = c(1, 3, 6, 24, 48, 72)
+) |>
+  # calculate rowwise
+  rowwise() |>
+  # mutate to add the integrated value
+  mutate(
+    sw_F2H = JRV_calc_integral(
+      t1 = 0,
+      t2 = t,
+      yf = JRV_yf,
+      y0 = JRV_y0,
+      alpha = JRV_alpha
+    ),
+    sample_id = paste("JRV", t, sep = "")
+  ) |>
+  ungroup()
+
+p_JRV <- JRV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  stat_function(fun = JRV_soil_water_equil, geom = "line", color = "blue") +
+  geom_line(
+    data = JRV_pred_data,
+    aes(x = pred_range, y = JRV_predicted),
+    color = "red"
+  ) +
+  geom_hline(
+    yintercept = JRV_val,
+    linetype = "dotted",
+    color = "black"
+  ) +
+  labs(
+    x = "Incubation time (hr)",
+    y = latex2exp::TeX("$^{2}F$"),
+    title = "Jalama Canyon Ranch (Cattle Pasture)\nDrought"
+  ) +
+  theme_bw()
+p_JRV
+
+
+p_JRV2 <- JRV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  #stat_function(fun = JRV_soil_water_equil, geom = "line", color = "blue") +
+  geom_line(
+    data = JRV_pred_data,
+    aes(x = pred_range, y = JRV_predicted),
+    color = "red"
+  ) +
+  labs(
+    x = "Incubation time (hr)",
+    y = latex2exp::TeX("$^{2}F$"),
+    title = "Jalama Canyon Ranch (Cattle Pasture)\nDrought"
+  ) +
+  theme_bw()
+p_JRV2
+```
+
+### JSV data
+
+```{r}
+JSV_eq <- equil_data |>
+  filter(sample_condition == "JSV", inc_time_hr != 24) |>
+  select(-sample_id)
+
+JSV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  labs(
+    x = "Incubation time (hr)",
+    y = latex2exp::TeX("$^{2}F$"),
+    title = "Jalama Canyon Ranch (Cattle Pasture)\nControl"
+  ) +
+  theme_bw()
+
+
+# define the model
+JSV_curve <- formula(F2H ~ Vmax + ((Vin - Vmax) * (exp(-Km * inc_time_hr))))
+
+JSV_fit <- nls(
+  JSV_curve,
+  JSV_eq,
+  start = list(Vin = 0.115, Vmax = 0.105, Km = 0.05)
+)
+summary(JSV_fit)
+
+# now predict:
+# the predicted atm%
+pred_range <- seq(0, 72, 0.1)
+
+# Then, calculate the predicted atm% using the predict function
+JSV_predicted <- predict(JSV_fit, list(inc_time_hr = pred_range))
+JSV_pred_data <- tibble(pred_range, JSV_predicted)
+
+# Best fit values of Km and Vmax obtained by coef function, stored in bestFitVals
+JSV_coefs <- JSV_fit |> broom::tidy()
+
+# plot the curve
+JSV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  geom_line(
+    data = JSV_pred_data,
+    aes(x = pred_range, y = JSV_predicted),
+    color = "red"
+  ) +
+  theme_bw()
+
+# Define the exponential decay function
+exp_decay <- function(t, yf, y0, alpha) {
+  yf + (y0 - yf) * exp(-alpha * t)
+}
+
+JSV_yf <- JSV_coefs |> filter(term == "Vmax") |> pull(estimate)
+JSV_y0 <- JSV_coefs |> filter(term == "Vin") |> pull(estimate)
+JSV_alpha <- JSV_coefs |> filter(term == "Km") |> pull(estimate)
+
+# Define the soil water equilibration function
+JSV_soil_water_equil <- function(x) {
+  JSV_yf + (0.0156 - JSV_yf) * exp(-JSV_alpha * x)
+}
+
+JSV_calc_integral <- function(t1, t2, yf, y0, alpha) {
+  val = integrate(
+    JSV_soil_water_equil,
+    lower = t1,
+    upper = t2
+  )$value
+  return(val / (t2 - t1))
+}
+
+JSV_val <- JSV_calc_integral(
+  t1 = 0,
+  t2 = 72,
+  yf = JSV_yf,
+  y0 = JSV_y0,
+  alpha = JSV_alpha
+)
+
+# create a tibble with the time points for soil water equilibration
+# integrated for each time step
+JSV_sw <- tibble(
+  t = c(1, 3, 6, 24, 48, 72)
+) |>
+  # calculate rowwise
+  rowwise() |>
+  # mutate to add the integrated value
+  mutate(
+    sw_F2H = JSV_calc_integral(
+      t1 = 0,
+      t2 = t,
+      yf = JSV_yf,
+      y0 = JSV_y0,
+      alpha = JSV_alpha
+    ),
+    sample_id = paste("JSV", t, sep = "")
+  ) |>
+  ungroup()
+
+p_JSV <- JSV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  stat_function(fun = JSV_soil_water_equil, geom = "line", color = "blue") +
+  geom_line(
+    data = JSV_pred_data,
+    aes(x = pred_range, y = JSV_predicted),
+    color = "red"
+  ) +
+  geom_hline(
+    yintercept = JSV_val,
+    linetype = "dotted",
+    color = "black"
+  ) +
+  labs(
+    x = "Incubation time (hr)",
+    y = latex2exp::TeX("$^{2}F$"),
+    title = "Jalama Canyon Ranch (Cattle Pasture)\nControl"
+  ) +
+  theme_bw()
+p_JSV
+
+p_JSV2 <- JSV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  #stat_function(fun = JSV_soil_water_equil, geom = "line", color = "blue") +
+  geom_line(
+    data = JSV_pred_data,
+    aes(x = pred_range, y = JSV_predicted),
+    color = "red"
+  ) +
+  labs(
+    x = "Incubation time (hr)",
+    y = latex2exp::TeX("$^{2}F$"),
+    title = "Jalama Canyon Ranch (Cattle Pasture)\nControl"
+  ) +
+  theme_bw()
+p_JSV2
+```
+
+### LRV data
+
+```{r}
+LRV_eq <- equil_data |>
+  filter(sample_condition == "LRV", inc_time_hr != 24) |>
+  select(-sample_id)
+# define the model
+LRV_curve <- formula(F2H ~ Vmax + ((Vin - Vmax) * (exp(-Km * inc_time_hr))))
+
+LRV_fit <- nls(
+  LRV_curve,
+  LRV_eq,
+  start = list(Vin = 0.115, Vmax = 0.105, Km = 0.05)
+)
+summary(LRV_fit)
+
+# now predict:
+# the predicted atm%
+pred_range <- seq(0, 72, 0.1)
+
+# Then, calculate the predicted atm% using the predict function
+LRV_predicted <- predict(LRV_fit, list(inc_time_hr = pred_range))
+LRV_pred_data <- tibble(pred_range, LRV_predicted)
+
+# Best fit values of Km and Vmax obtained by coef function, stored in bestFitVals
+LRV_coefs <- LRV_fit |> broom::tidy()
+
+# plot the curve
+LRV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  geom_line(
+    data = LRV_pred_data,
+    aes(x = pred_range, y = LRV_predicted),
+    color = "red"
+  ) +
+  theme_bw()
+
+# Define the exponential decay function
+exp_decay <- function(t, yf, y0, alpha) {
+  yf + (y0 - yf) * exp(-alpha * t)
+}
+
+LRV_yf <- LRV_coefs |> filter(term == "Vmax") |> pull(estimate)
+LRV_y0 <- LRV_coefs |> filter(term == "Vin") |> pull(estimate)
+LRV_alpha <- LRV_coefs |> filter(term == "Km") |> pull(estimate)
+
+# Define the soil water equilibration function
+LRV_soil_water_equil <- function(x) {
+  LRV_yf + (0.0156 - LRV_yf) * exp(-LRV_alpha * x)
+}
+
+
+LRV_calc_integral <- function(t1, t2, yf, y0, alpha) {
+  val = integrate(
+    LRV_soil_water_equil,
+    lower = t1,
+    upper = t2
+  )$value
+  return(val / (t2 - t1))
+}
+
+LRV_val <- LRV_calc_integral(
+  t1 = 0,
+  t2 = 72,
+  yf = LRV_yf,
+  y0 = LRV_y0,
+  alpha = LRV_alpha
+)
+
+# create a tibble with the time points for soil water equilibration
+# integrated for each time step
+LRV_sw <- tibble(
+  t = c(1, 3, 6, 24, 48, 72)
+) |>
+  # calculate rowwise
+  rowwise() |>
+  # mutate to add the integrated value
+  mutate(
+    sw_F2H = LRV_calc_integral(
+      t1 = 0,
+      t2 = t,
+      yf = LRV_yf,
+      y0 = LRV_y0,
+      alpha = LRV_alpha
+    ),
+    sample_id = paste("LRV", t, sep = "")
+  ) |>
+  ungroup()
+
+p_LRV <- LRV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  stat_function(fun = LRV_soil_water_equil, geom = "line", color = "blue") +
+  geom_line(
+    data = LRV_pred_data,
+    aes(x = pred_range, y = LRV_predicted),
+    color = "red"
+  ) +
+  geom_hline(
+    yintercept = LRV_val,
+    linetype = "dotted",
+    color = "black"
+  ) +
+  labs(
+    x = "Incubation time (hr)",
+    y = latex2exp::TeX("$^{2}F$"),
+    title = "Loma Ridge (Grassland)\nDrought"
+  ) +
+  theme_bw()
+p_LRV
+
+p_LRV2 <- LRV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  geom_line(
+    data = LRV_pred_data,
+    aes(x = pred_range, y = LRV_predicted),
+    color = "red"
+  ) +
+  labs(
+    x = "Incubation time (hr)",
+    y = latex2exp::TeX("$^{2}F$"),
+    title = "Loma Ridge (Grassland)\nDrought"
+  ) +
+  theme_bw()
+p_LRV2
+```
+
+### LSV data
+
+```{r}
+LSV_eq <- equil_data |>
+  filter(sample_condition == "LSV", inc_time_hr != 24) |>
+  select(-sample_id)
+# define the model
+LSV_curve <- formula(F2H ~ Vmax + ((Vin - Vmax) * (exp(-Km * inc_time_hr))))
+
+LSV_fit <- nls(
+  LSV_curve,
+  LSV_eq,
+  start = list(Vin = 0.115, Vmax = 0.105, Km = 0.05)
+)
+summary(LSV_fit)
+
+# now predict:
+# the predicted atm%
+pred_range <- seq(0, 72, 0.1)
+
+# Then, calculate the predicted atm% using the predict function
+LSV_predicted <- predict(LSV_fit, list(inc_time_hr = pred_range))
+LSV_pred_data <- tibble(pred_range, LSV_predicted)
+
+# Best fit values of Km and Vmax obtained by coef function, stored in bestFitVals
+LSV_coefs <- LSV_fit |> broom::tidy()
+
+# plot the curve
+LSV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  geom_line(
+    data = LSV_pred_data,
+    aes(x = pred_range, y = LSV_predicted),
+    color = "red"
+  ) +
+  theme_bw()
+
+# Define the exponential decay function
+exp_decay <- function(t, yf, y0, alpha) {
+  yf + (y0 - yf) * exp(-alpha * t)
+}
+
+LSV_yf <- LSV_coefs |> filter(term == "Vmax") |> pull(estimate)
+LSV_y0 <- LSV_coefs |> filter(term == "Vin") |> pull(estimate)
+LSV_alpha <- LSV_coefs |> filter(term == "Km") |> pull(estimate)
+
+# Define the soil water equilibration function
+LSV_soil_water_equil <- function(x) {
+  LSV_yf + (0.0156 - LSV_yf) * exp(-LSV_alpha * x)
+}
+
+
+LSV_calc_integral <- function(t1, t2, yf, y0, alpha) {
+  val = integrate(
+    LSV_soil_water_equil,
+    lower = t1,
+    upper = t2
+  )$value
+  return(val / (t2 - t1))
+}
+
+LSV_val <- LSV_calc_integral(
+  t1 = 0,
+  t2 = 72,
+  yf = LSV_yf,
+  y0 = LSV_y0,
+  alpha = LSV_alpha
+)
+
+# create a tibble with the time points for soil water equilibration
+# integrated for each time step
+LSV_sw <- tibble(
+  t = c(1, 3, 6, 24, 48, 72)
+) |>
+  # calculate rowwise
+  rowwise() |>
+  # mutate to add the integrated value
+  mutate(
+    sw_F2H = LSV_calc_integral(
+      t1 = 0,
+      t2 = t,
+      yf = LSV_yf,
+      y0 = LSV_y0,
+      alpha = LSV_alpha
+    ),
+    sample_id = paste("LSV", t, sep = "")
+  ) |>
+  ungroup()
+
+p_LSV <- LSV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  stat_function(fun = LSV_soil_water_equil, geom = "line", color = "blue") +
+  geom_line(
+    data = LSV_pred_data,
+    aes(x = pred_range, y = LSV_predicted),
+    color = "red"
+  ) +
+  geom_hline(
+    yintercept = LSV_val,
+    linetype = "dotted",
+    color = "black"
+  ) +
+  labs(
+    x = "Incubation time (hr)",
+    y = latex2exp::TeX("$^{2}F$"),
+    title = "Loma Ridge (Grassland)\nControl"
+  ) +
+  theme_bw()
+p_LSV
+
+p_LSV2 <- LSV_eq |>
+  ggplot(
+    aes(x = inc_time_hr, y = F2H)
+  ) +
+  geom_point(shape = 1) +
+  geom_line(
+    data = LSV_pred_data,
+    aes(x = pred_range, y = LSV_predicted),
+    color = "red"
+  ) +
+  labs(
+    x = "Incubation time (hr)",
+    y = latex2exp::TeX("$^{2}F$"),
+    title = "Loma Ridge (Grassland)\nControl"
+  ) +
+  theme_bw()
+p_LSV2
+```
+
+## combined plot
+
+```{r}
+p_combined_vsip <- cowplot::plot_grid(
+  p_JRV,
+  p_JSV,
+  p_LRV,
+  p_LSV,
+  labels = c("A", "B", "C", "D"),
+  ncol = 2
+)
+
+p_combined_vsip
+
+# p_combined_vsip |>
+#   cowplot::save_plot(
+#     filename = "fig_output/TAC_vapor_SIP_curves.pdf",
+#     base_height = 5,
+#     base_width = 8
+#   )
+
+p_combined_vsip2 <- cowplot::plot_grid(
+  p_JRV2,
+  p_JSV2,
+  p_LRV2,
+  p_LSV2,
+  labels = c("A", "B", "C", "D"),
+  ncol = 2
+)
+p_combined_vsip2
+
+# p_combined_vsip2 |>
+#   cowplot::save_plot(
+#     filename = "fig_output/TAC_vapor_SIP_curves_no_sw.pdf",
+#     base_height = 5,
+#     base_width = 8
+#   )
+
+```
+
+## Summary table
+
+```{r}
+summary <- JRV_sw |>
+  bind_rows(
+    JSV_sw,
+    LRV_sw,
+    LSV_sw
+  ) |>
+  select(sample_id, everything()) |>
+  mutate(condition = str_extract(sample_id, "[A-Z]+"))
+
+summary |>
+  ggplot(
+    aes(x = t, y = sw_F2H, shape = condition)
+  ) +
+  geom_line() +
+  geom_point(color = "black", fill = "white") +
+  scale_shape_manual(values = c(21, 22, 23, 24)) +
+  labs(
+    x = "Incubation time (hr)",
+    y = latex2exp::TeX("$^{2}F_L$"),
+    title = "Integrated Label Strength"
+  ) +
+  theme_bw()
+
+summary |>
+  writexl::write_xlsx("data_output/TAC_vapor_SIP_summary.xlsx")
+```
+
