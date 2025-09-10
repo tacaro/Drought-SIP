@@ -21,42 +21,44 @@ library(fluxible)
 # define function for reading data
 read_licor7810 <- function(filename) {
   df = read_delim(filename, skip = 5)
-  units = df[1,] |> unlist() |> as.character()
+  units = df[1, ] |> unlist() |> as.character()
   colnames(df) = paste0(colnames(df), "_", units)
-  df = df[-1,]
+  df = df[-1, ]
   return(df)
 }
 
 # list file paths
-file_paths <- list.files("data/LiCOR/", pattern = "*.data",full.names = TRUE)
+file_paths <- list.files("data/LiCOR/", pattern = "*.data", full.names = TRUE)
 
 # map our function across all elements in the list
 df_list <- map(file_paths, read_licor7810)
 
 # concatenate dfs together
-crds <- bind_rows(df_list) |> 
-  mutate(across(everything(), ~ type.convert(as.character(.), as.is = TRUE))) |> 
-  mutate(datetime = ymd_hms(paste(DATE_date, TIME_time))) |> 
-  mutate(rn = row_number()) |> 
+crds <- bind_rows(df_list) |>
+  mutate(across(everything(), ~ type.convert(as.character(.), as.is = TRUE))) |>
+  mutate(datetime = ymd_hms(paste(DATE_date, TIME_time))) |>
+  mutate(rn = row_number()) |>
   mutate(sample_id = NA)
 ```
 
 ## Import metadata
 
 ```{r}
-metadata <- readxl::read_excel("data/LiCOR/LiCOR_sampling_metadata.xlsx") |> 
+metadata <- readxl::read_excel("data/LiCOR/LiCOR_sampling_metadata.xlsx") |>
   mutate(
     datetime_start = ymd_hms(paste(date, time_start)),
     datetime_end = ymd_hms(paste(date, time_end))
-    )
+  )
 
-sample_info <- metadata |> 
-  select(sample_id, site, condition, time_after_rain, temp_start, temp_end) |> 
-  mutate(temp_midpoint = case_when(
-    temp_start & temp_end ~ (temp_start + temp_end) / 2,
-    temp_start & is.na(temp_end) ~ temp_start,
-    temp_end & is.na(temp_start) ~ temp_end
-  ))
+sample_info <- metadata |>
+  select(sample_id, site, condition, time_after_rain, temp_start, temp_end) |>
+  mutate(
+    temp_midpoint = case_when(
+      temp_start & temp_end ~ (temp_start + temp_end) / 2,
+      temp_start & is.na(temp_end) ~ temp_start,
+      temp_end & is.na(temp_start) ~ temp_end
+    )
+  )
 ```
 
 ## join metadata with a loop
@@ -73,13 +75,12 @@ for (i in seq_len(nrow(metadata))) {
   start_time <- metadata$datetime_start[i]
   end_time <- metadata$datetime_end[i]
   current_sample_id <- metadata$sample_id[i]
-  
+
   # find rows where dt is within the current interval
   in_range <- crds$datetime >= start_time & crds$datetime <= end_time
-  
+
   crds$sample_id[in_range] <- current_sample_id
   print(current_sample_id)
-
 }
 ```
 
@@ -88,21 +89,23 @@ for (i in seq_len(nrow(metadata))) {
 plot the flux curves for ch4
 
 ```{r}
-crds_samples <- crds |> filter(!is.na(sample_id)) |> 
+crds_samples <- crds |>
+  filter(!is.na(sample_id)) |>
   # remove this weird column
   select(-rn) |>
   # keep only distinct rows (duplicates due to rn column)
   distinct() |>
   # for each measurement ...
-  group_by(sample_id) |> 
+  group_by(sample_id) |>
   arrange(datetime) |> #arrange by datetime in case any data is out of order
   # calcualte time change in seconds
-  mutate(dt_start = min(datetime), # noting the start of the measurement
-         difftime_sec = as.numeric(datetime - dt_start)
-         ) |> 
+  mutate(
+    dt_start = min(datetime), # noting the start of the measurement
+    difftime_sec = as.numeric(datetime - dt_start)
+  ) |>
   ungroup()
 
-crds_samples |> 
+crds_samples |>
   ggplot(
     aes(
       x = difftime_sec,
@@ -120,36 +123,39 @@ crds_samples |>
 
 ```{r}
 # nest the data by sample_id
-crds_nested <- crds_samples |> 
-  group_by(sample_id) |> 
+crds_nested <- crds_samples |>
+  group_by(sample_id) |>
   nest()
 ```
 
 ```{r}
 # define the linear regression model
-lm_spec <- linear_reg() |> 
+lm_spec <- linear_reg() |>
   set_engine("lm")
 ```
 
 ```{r}
 # fit the model for each group using map
-crds_nested <- crds_nested |> 
-  mutate(model = map(data, ~ fit(lm_spec, CH4_ppb ~ difftime_sec, data = .x))) |> 
+crds_nested <- crds_nested |>
+  mutate(
+    model = map(data, ~ fit(lm_spec, CH4_ppb ~ difftime_sec, data = .x))
+  ) |>
   # extract model parameters using tidy
   mutate(tidy_model = map(model, ~ tidy(.x$fit)))
 
-# unnest the regression params and 
-model_params <- crds_nested |> 
-  select(sample_id, tidy_model) |> 
-  unnest(tidy_model) |> 
+# unnest the regression params and
+model_params <- crds_nested |>
+  select(sample_id, tidy_model) |>
+  unnest(tidy_model) |>
   # pull out slope, remove intercept term b/c we don't want it
-  filter(term != "(Intercept)") |> 
-  rename(slope = estimate) |> select(-term) |> 
+  filter(term != "(Intercept)") |>
+  rename(slope = estimate) |>
+  select(-term) |>
   left_join(sample_info, by = join_by(sample_id))
 ```
 
 ```{r}
-crds_samples |> 
+crds_samples |>
   ggplot(
     aes(
       x = datetime, # other option is 'datetime'
@@ -160,8 +166,12 @@ crds_samples |>
     method = "lm",
     formula = "y~x"
   ) +
-  geom_text(data = model_params,
-            aes(label = round(slope, 5)), x = 500, y = 2000) +
+  geom_text(
+    data = model_params,
+    aes(label = round(slope, 5)),
+    x = 500,
+    y = 2000
+  ) +
   geom_line() +
   facet_wrap(vars(sample_id), scales = "free_x")
 ```
@@ -169,7 +179,7 @@ crds_samples |>
 plot the slopes
 
 ```{r}
-model_params |> 
+model_params |>
   ggplot(
     aes(
       x = time_after_rain,
@@ -241,31 +251,39 @@ R = 0.0821 # uL atm / µmol K
 ch4_mw = 16.04 # g / mol
 temp_K = 273 + 35 # temp placeholder
 
-ch4_flux <- model_params |> 
+ch4_flux <- model_params |>
   mutate(
-      ppbv_per_sec = slope,
-      ppmv_per_min = ppbv_per_sec / 1000 * 60, # convert to ppm per min
-      uL_per_L_per_min = ppmv_per_min,
-      ug_per_L_per_min = (uL_per_L_per_min * ch4_mw * P_atm) / (R * temp_K),
-      ug_m2_hr = (ug_per_L_per_min * vol_L * min_per_hr) / area_m2
+    ppbv_per_sec = slope,
+    ppmv_per_min = ppbv_per_sec / 1000 * 60, # convert to ppm per min
+    uL_per_L_per_min = ppmv_per_min,
+    ug_per_L_per_min = (uL_per_L_per_min * ch4_mw * P_atm) / (R * temp_K),
+    ug_m2_hr = (ug_per_L_per_min * vol_L * min_per_hr) / area_m2
   )
 ```
 
 Plot
 
 ```{r}
-p_ch4_flux <- ch4_flux |> 
+p_ch4_flux <- ch4_flux |>
   mutate(
     site = case_when(
       site == "JCR" ~ "Cattle Pasture",
       site == "LOM" ~ "Grassland"
-      ),
+    ),
     condition = case_when(
       condition == "ROS" ~ "Drought",
       condition == "sky" ~ "No Drought"
+    ),
+    time_after_rain = case_when(
+      time_after_rain == 0 ~ "Pre",
+      TRUE ~ as.factor(time_after_rain)
+    ),
+    time_after_rain = factor(
+      time_after_rain,
+      levels = c("Pre", "1", "3", "6", "12", "24", "48")
     )
-  ) |> 
-  filter(time_after_rain != 21) |> 
+  ) |>
+  filter(time_after_rain != 21) |>
   ggplot(
     aes(
       x = as.factor(time_after_rain),
@@ -274,43 +292,47 @@ p_ch4_flux <- ch4_flux |>
   ) +
   geom_col(aes(fill = condition)) +
   scale_fill_manual(values = c("#ffac47", "#4e80c7")) +
-  facet_grid(condition ~ site) +
+  facet_grid(site ~ condition) +
   pilot::theme_pilot() +
   labs(
     x = "Time after rewetting (hrs)",
     y = latex2exp::TeX("$CH_4$ flux $(µg \\; (m^2 \\cdot hr)^{-1})$")
   ) +
   theme(
-    axis.text.x = element_text(angle = 90, hjust = 1),
+    axis.text.x = element_text(angle = 0, hjust = 0.5),
     legend.position = "none"
   )
 p_ch4_flux
 
-ggsave(plot = p_ch4_flux,
-       filename = "fig_output/ch4_flux_barchart.png",
-       dpi = 1000,
-       height = 4,
-       width = 5)
+# ggsave(
+#   plot = p_ch4_flux,
+#   filename = "fig_output/ch4_flux_barchart.png",
+#   dpi = 1000,
+#   height = 4,
+#   width = 5
+# )
 ```
 
 # CO2
 
 ```{r}
-crds_samples <- crds |> filter(!is.na(sample_id)) |> 
+crds_samples <- crds |>
+  filter(!is.na(sample_id)) |>
   # remove this weird column
   select(-rn) |>
   # keep only distinct rows (duplicates due to rn column)
   distinct() |>
   # for each measurement ...
-  group_by(sample_id) |> 
+  group_by(sample_id) |>
   arrange(datetime) |> #arrange by datetime in case any data is out of order
   # calcualte time change in seconds
-  mutate(dt_start = min(datetime), # noting the start of the measurement
-         difftime_sec = as.numeric(datetime - dt_start)
-         ) |> 
+  mutate(
+    dt_start = min(datetime), # noting the start of the measurement
+    difftime_sec = as.numeric(datetime - dt_start)
+  ) |>
   ungroup()
 
-crds_samples |> 
+crds_samples |>
   ggplot(
     aes(
       x = difftime_sec,
@@ -328,30 +350,33 @@ crds_samples |>
 
 ```{r}
 # nest the data by sample_id
-crds_nested_co2 <- crds_samples |> 
-  group_by(sample_id) |> 
+crds_nested_co2 <- crds_samples |>
+  group_by(sample_id) |>
   nest()
 
 # fit the model for each group using map
-crds_nested_co2 <- crds_nested_co2 |> 
-  mutate(model = map(data, ~ fit(lm_spec, CO2_ppm ~ difftime_sec, data = .x))) |> 
+crds_nested_co2 <- crds_nested_co2 |>
+  mutate(
+    model = map(data, ~ fit(lm_spec, CO2_ppm ~ difftime_sec, data = .x))
+  ) |>
   # extract model parameters using tidy
   mutate(tidy_model = map(model, ~ tidy(.x$fit)))
 
-# unnest the regression params and 
-model_params_co2 <- crds_nested_co2 |> 
-  select(sample_id, tidy_model) |> 
-  unnest(tidy_model) |> 
+# unnest the regression params and
+model_params_co2 <- crds_nested_co2 |>
+  select(sample_id, tidy_model) |>
+  unnest(tidy_model) |>
   # pull out slope, remove intercept term b/c we don't want it
-  filter(term != "(Intercept)") |> 
-  rename(slope = estimate) |> select(-term) |> 
+  filter(term != "(Intercept)") |>
+  rename(slope = estimate) |>
+  select(-term) |>
   left_join(sample_info, by = join_by(sample_id))
 ```
 
 plot the slopes
 
 ```{r}
-model_params_co2 |> 
+model_params_co2 |>
   ggplot(
     aes(
       x = time_after_rain,
@@ -384,37 +409,45 @@ R = 0.0821 # uL atm / µmol K
 co2_mw = 44.01 # g / mol
 temp_K = 273 + 35 # temp placeholder
 
-co2_flux <- model_params_co2 |> 
-  filter(sample_id != "JCR-SKY-PRE-1") |> 
-  filter(sample_id != "JCR-ROS-PRE-1") |> 
+co2_flux <- model_params_co2 |>
+  filter(sample_id != "JCR-SKY-PRE-1") |>
+  filter(sample_id != "JCR-ROS-PRE-1") |>
   mutate(
-      ppmv_sec = slope,
-      ppmv_per_min = ppmv_sec * 60, # convert to ppm per min
-      uL_per_L_per_min = ppmv_per_min,
-      ug_per_L_per_min = (uL_per_L_per_min * co2_mw * P_atm) / (R * temp_K),
-      ug_m2_hr = (ug_per_L_per_min * vol_L * min_per_hr) / area_m2,
-      umol_m2_hr = ug_m2_hr / co2_mw, # 1 umol co2 is 44.01 ug
-      umol_m2_sec = umol_m2_hr / 3600
+    ppmv_sec = slope,
+    ppmv_per_min = ppmv_sec * 60, # convert to ppm per min
+    uL_per_L_per_min = ppmv_per_min,
+    ug_per_L_per_min = (uL_per_L_per_min * co2_mw * P_atm) / (R * temp_K),
+    ug_m2_hr = (ug_per_L_per_min * vol_L * min_per_hr) / area_m2,
+    umol_m2_hr = ug_m2_hr / co2_mw, # 1 umol co2 is 44.01 ug
+    umol_m2_sec = umol_m2_hr / 3600
   )
 ```
 
 ```{r}
-p_co2_flux <- co2_flux |> 
+p_co2_flux <- co2_flux |>
   mutate(
     site = case_when(
       site == "JCR" ~ "Cattle Pasture",
       site == "LOM" ~ "Grassland"
-      ),
+    ),
     condition = case_when(
       condition == "ROS" ~ "Drought",
       condition == "sky" ~ "No Drought"
+    ),
+    time_after_rain = case_when(
+      time_after_rain == 0 ~ "Pre",
+      TRUE ~ as.factor(time_after_rain)
+    ),
+    time_after_rain = factor(
+      time_after_rain,
+      levels = c("Pre", "1", "3", "6", "12", "24", "48")
     )
-  ) |> 
+  ) |>
   filter(time_after_rain != 21) |>
   #filter(time_after_rain != 6) |>
   ggplot(
     aes(
-      x = as.factor(time_after_rain),
+      x = time_after_rain,
       y = umol_m2_sec
     )
   ) +
@@ -425,7 +458,7 @@ p_co2_flux <- co2_flux |>
   #   shape = 21,
   #   color = "black"
   # ) +
-  facet_grid(condition ~ site) +
+  facet_grid(site ~ condition) +
   scale_fill_manual(values = c("#ffac47", "#4e80c7")) +
   pilot::theme_pilot() +
   labs(
@@ -433,16 +466,33 @@ p_co2_flux <- co2_flux |>
     y = latex2exp::TeX("$CO_2$ flux $(µmol \\; (m^2 \\cdot sec)^{-1})$")
   ) +
   theme(
-    axis.text.x = element_text(angle = 90, hjust = 1),
+    axis.text.x = element_text(angle = 0, hjust = 0.5),
     legend.position = "none"
   )
 p_co2_flux
 
-ggsave(
-  plot = p_co2_flux,
-  filename = "fig_output/co2_flux_barchart.png",
-  dpi = 1000,
-  height = 4,
-  width = 5,
-)
+# ggsave(
+#   plot = p_co2_flux,
+#   filename = "fig_output/co2_flux_barchart.png",
+#   dpi = 1000,
+#   height = 4,
+#   width = 5,
+# )
+```
+
+## Export cache
+
+
+```{r}
+co2_flux |>
+  select(
+    sample_id,
+    site,
+    condition,
+    time_after_rain,
+    umol_m2_sec
+  ) |>
+  saveRDS(
+    file = "cache/co2_flux_umol_m2_sec.rds"
+  )
 ```
