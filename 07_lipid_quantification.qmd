@@ -1,0 +1,338 @@
+---
+title: "Lipid Quantification"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+Import data
+
+
+```{r}
+
+read_excel_sheets_with_names <- function(file_path) {
+  # Get all sheet names
+  sheet_names <- excel_sheets(file_path)
+  print(sheet_names)
+  # Read each sheet into a tibble, adding the sheet name as a column
+  sheet_data <- map(
+    sheet_names,
+    ~ read_excel(file_path, sheet = .x, skip = 4, trim_ws = TRUE) |>
+      mutate(Area = as.numeric(Area)) |>
+      filter(!is.na(Filename)) |>
+      mutate(sheet = .x)
+  )
+
+  # Optionally combine all sheets into one tibble
+  combined_data <- bind_rows(sheet_data)
+
+  return(combined_data)
+}
+```
+
+Define function for reading in these wonky excel sheets, which I converted from .xls to .xlsx:
+
+```{r}
+read_excel_sheets_with_names <- function(file_path) {
+  # Get all sheet names
+  sheet_names <- excel_sheets(file_path)
+
+  # Create a safe version of read_excel
+  safe_read <- safely(function(sheet) {
+    read_excel(file_path, sheet = sheet, skip = 4, trim_ws = TRUE) %>%
+      mutate(compound = sheet) |>
+      mutate(
+        Height = as.numeirc(Height),
+        Area = as.numeric(Area),
+        RT = as.numeric(RT)
+      ) |>
+      filter(!is.na(Filename))
+  })
+
+  # Attempt to read each sheet
+  sheet_results <- map(sheet_names, safe_read)
+
+  # Extract only the successful reads
+  valid_sheets <- sheet_results %>%
+    keep(~ is.null(.x$error)) %>%
+    map("result")
+
+  # Optionally warn about skipped sheets
+  failed_sheets <- sheet_names[map_lgl(sheet_results, ~ !is.null(.x$error))]
+  if (length(failed_sheets) > 0) {
+    warning(
+      "The following sheets could not be read and were skipped: ",
+      paste(failed_sheets, collapse = ", ")
+    )
+  }
+
+  # Combine all valid tibbles into one
+  combined_data <- bind_rows(valid_sheets)
+
+  return(combined_data)
+}
+```
+
+
+```{r}
+vapor_sip <- read_excel_sheets_with_names(
+  "data/GCMS Data/Vapor_SIP_FAMES.xlsx"
+) |>
+  mutate(compound = str_replace(compound, "_", ":")) |>
+  select(
+    filename = Filename,
+    compound,
+    area = Area,
+    rt = RT
+  )
+```
+
+```{r}
+liquid_file_path <- "data/GCMS Data/Liquid_SIP_FAMES.xlsx"
+
+# Get all sheet names
+liquid_sheet_names <- excel_sheets(liquid_file_path)
+
+# Read all sheets and add a sheet name column
+liquid_sip <- liquid_sheet_names |>
+  discard(~ .x == "mdlCalcs") |> # Skip the "mdlCalcs" sheet
+  map_df(
+    ~ read_excel(
+      liquid_file_path,
+      sheet = .x,
+      skip = 4,
+      trim_ws = TRUE,
+      col_types = "text"
+    ) |>
+      mutate(sheet = .x)
+  ) |>
+  mutate(
+    Area = as.numeric(Area),
+    Height = as.numeric(Height),
+    RT = as.numeric(RT)
+  ) |>
+  rename(compound = sheet) |>
+  select(
+    filename = Filename,
+    compound,
+    area = Area,
+    # Height,
+    RT
+  )
+
+######## vapor SIP:
+
+vapor_file_path <- "data/GCMS Data/Vapor_SIP_FAMES.xlsx"
+
+# Get all sheet names
+vapor_sheet_names <- excel_sheets(vapor_file_path)
+
+
+vapor_sip <- vapor_sheet_names |>
+  discard(~ .x == "mdlCalcs") |> # Skip the "mdlCalcs" sheet
+  map_df(
+    ~ read_excel(
+      vapor_file_path,
+      sheet = .x,
+      skip = 4,
+      trim_ws = TRUE,
+      col_types = "text"
+    ) |>
+      mutate(sheet = .x)
+  ) |>
+  mutate(
+    Area = as.numeric(Area),
+    #Height = as.numeric(Height),
+    RT = as.numeric(RT)
+  ) |>
+  rename(compound = sheet) |>
+  select(
+    filename = Filename,
+    compound,
+    area = Area,
+    #Height,
+    RT
+  )
+
+
+```
+
+```{r}
+# combine datasets and add in some metadata
+gcms_data <- liquid_sip |>
+  bind_rows(vapor_sip) |>
+  # filter out injections we don't want:
+  filter(!filename %in% c("Created By:", "User Name", "TSQ9000")) |>
+  filter(str_detect(filename, "blank", negate = TRUE)) |>
+  filter(str_detect(filename, "BLANK", negate = TRUE)) |>
+  filter(str_detect(filename, "BAME", negate = TRUE)) |>
+  filter(str_detect(filename, "PAIBE", negate = TRUE)) |>
+  # filter out PAIBE
+  filter(compound != "PAIBE") |>
+  mutate(
+    SIP_type = case_when(
+      str_sub(filename, 3, 3) == "V" ~ "Vapor-SIP",
+      str_sub(filename, 3, 3) == "W" ~ "Liquid-SIP"
+    ),
+    site = case_when(
+      str_sub(filename, 1, 1) == "J" ~ "JCR",
+      str_sub(filename, 1, 1) == "L" ~ "Loma Ridge"
+    ),
+    drought = case_when(
+      str_sub(filename, 2, 2) == "R" ~ "Drought",
+      str_sub(filename, 2, 2) == "S" ~ "No Drought"
+    ),
+    dt_hr = as.numeric(str_extract(filename, "(?<=\\D)(\\d{1,2})(?=_)"))
+  ) |>
+  select(
+    filename,
+    site,
+    drought,
+    dt_hr,
+    SIP_type,
+    everything()
+  ) |>
+  # Based on our PAIBE, the instrument responds 73560108466 area per µg. So µg = area / 73560108466
+  mutate(
+    ug_injected = area / 73560108466,
+    ug_total = ug_injected * 200, # 1 uL injected from 200 uL hexane extract
+  ) |>
+  # rename compounds
+  mutate(
+    compound = str_replace_all(compound, "_", ":"),
+    # fix some names
+    compound = case_when(
+      compound == "19:0:(cyclo)" ~ "19:0 (cyclo)",
+      compound == "2-OH:16:0" ~ "2-OH 16:0",
+      compound == "17:0:(cyclo)" ~ "17:0 (cyclo)",
+      compound == "3-OH:14:0" ~ "3-OH 14:0",
+      compound == "2-OH:14:0" ~ "2-OH 14:0",
+      compound == "3-OH:12:0" ~ "3-OH 12:0",
+      compound == "2-OH:12:0" ~ "2-OH 12:0",
+      compound == "2-OH:10:0" ~ "2-OH 10:0",
+      TRUE ~ compound
+    )
+  )
+```
+
+Calculate recovery of the internal standard. We added 50 ug of 23:0 PC to each extraction
+
+```{r}
+extraction_standard <- gcms_data |>
+  filter(compound == "23:0") |>
+  rename(ug_23PC_recovered = ug_total) |>
+  # we added 50 ug of 23:0 PC to each extraction
+  mutate(ug_23PC_added = 50) |>
+  mutate(fraction_recovered = ug_23PC_recovered / ug_23PC_added) |>
+  mutate(percent_recovered = fraction_recovered * 100)
+
+extraction_standard |>
+  select(site, drought, dt_hr, SIP_type, percent_recovered) |>
+  arrange(site, drought, dt_hr) |>
+  gt::gt() |>
+  gt::data_color(percent_recovered, palette = "Blues")
+```
+
+Join the recovery data back in:
+
+
+```{r}
+gcms_data_w_recovery <- gcms_data |>
+  left_join(
+    extraction_standard |> select(filename, fraction_recovered),
+    by = "filename"
+  ) |>
+  mutate(
+    ug_extracted = ug_total / fraction_recovered,
+    ug_per_g_soil = ug_extracted / 5 # 5 g of soil extracted
+  ) |>
+  mutate(
+    site_abbrev = str_sub(site, 1, 1),
+    drought_abbrev = case_when(
+      drought == "Drought" ~ "R",
+      drought == "No Drought" ~ "S"
+    ),
+    SIP_type_abbrev = case_when(
+      SIP_type == "Vapor-SIP" ~ "V",
+      SIP_type == "Liquid-SIP" ~ "W"
+    ),
+    compound = case_when(
+      compound == "2-OH:10_0" ~ "2-OH_10:0",
+      compound == "2-OH:12_0" ~ "2-OH_12:0",
+      compound == "2-OH:14_0" ~ "2-OH_14:0",
+      compound == "2-OH:16_0" ~ "2-OH_16:0",
+      compound == "3-OH:12_0" ~ "3-OH_12:0",
+      compound == "3-OH:14_0" ~ "3-OH_14:0",
+      TRUE ~ compound
+    ),
+    clean_id = paste0(site_abbrev, drought_abbrev, SIP_type_abbrev, dt_hr)
+  ) |>
+  select(-c(site_abbrev, drought_abbrev, SIP_type_abbrev))
+```
+
+## Plot
+
+```{r}
+gcms_data_w_recovery |>
+  ggplot(
+    aes(
+      x = dt_hr,
+      y = ug_per_g_soil,
+      color = compound,
+      shape = SIP_type
+    )
+  ) +
+  geom_line() +
+  geom_point() +
+  facet_grid(site ~ drought) +
+  theme_minimal()
+```
+
+## Summarize
+
+
+```{r}
+gcms_data_w_recovery |> colnames()
+
+lipid_totals <- gcms_data_w_recovery |>
+  select(clean_id, site, drought, dt_hr, SIP_type, compound, ug_per_g_soil) |>
+  group_by(clean_id, site, drought, dt_hr, SIP_type) |>
+  summarise(
+    total_ug_per_g_soil = sum(ug_per_g_soil, na.rm = TRUE)
+  )
+
+lipid_totals |>
+  ggplot(
+    aes(
+      x = as.factor(dt_hr),
+      y = total_ug_per_g_soil,
+      fill = SIP_type
+    )
+  ) +
+  geom_col(
+    position = position_dodge(width = 0.5, preserve = "single"),
+    width = 0.5,
+    color = "white"
+  ) +
+  facet_wrap(vars(site, drought), scales = "free_x") +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(angle = 90, hjust = 1)
+  )
+```
+
+export to cache
+
+
+```{r}
+lipid_totals |> knitr::kable()
+
+lipid_totals |> saveRDS("cache/lipid_abundances.rds")
+```
