@@ -482,7 +482,6 @@ p_co2_flux
 
 ## Export cache
 
-
 ```{r}
 co2_flux |>
   select(
