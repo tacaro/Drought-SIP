@@ -7,3 +7,4 @@ data/mzmine_example_data/*
 fig_output/*
 Calculate-2H-incorporated.R
 data.csv
+*.XLS
