@@ -3,6 +3,7 @@ title: "gRodon"
 format: html
 editor_options: 
   chunk_output_type: console
+highlight-style: github
 ---
 
 ## Setup
@@ -86,32 +87,59 @@ growth |>
   )
 ```
 
-Once we have our mass specific power estimates, we can estimate the respiration rate that is required to sustain this energetic flux. First, we must calculate total energy flux (without units of mass) estimated from the total biomass in the system. For this toy example, let's assume $10^9$ cells per g of soil, and cell-specific C biomass of 100 fg C:
+Once we have our mass specific power estimates, we can estimate the respiration rate that is required to sustain this energetic flux. First, we must calculate total energy flux (without units of mass) estimated from the total biomass in the system.
 
-$$
-10^9 cells \: (g \: soil)^{-1} \times 10^2 \: fg \: C \: (cell)^{-1} = 10^{11} \: fg \: C = 10^{-4} \: g \: C
-$$
-
-Therefore, our total power (P) is:
-
-$$
-P = \frac{MSP \: (W / gC)}{10^{-4} \: gC}
-$$
+Let's use the actual lipid biomass data estimates from the system:
 
 ```{r}
-growth <- growth |>
+# read in the lipid data
+lipid_biomass <- read_rds("cache/lipid_abundances.rds") |> ungroup()
+
+lipid_biomass_summary <- lipid_biomass |>
+  group_by(site) |>
+  summarise(
+    total_ug_per_g_soil = mean(total_ug_per_g_soil)
+  ) |>
+  mutate(site = case_when(site == "Loma Ridge" ~ "LOM", TRUE ~ site))
+```
+
+We conservatively assume that lipids are 9% of total cell biomass (Neidhardt et al. 1987)
+
+```{r}
+growth_w_biomass <- growth |>
+  left_join(
+    lipid_biomass_summary |> select(site, total_ug_per_g_soil),
+    by = "site"
+  ) |>
+  rename(lipid_biomass_ug_per_g_soil = total_ug_per_g_soil) |>
   mutate(
-    cells_per_g_soil = 1e9,
-    fgC_per_cell = 100,
-    biomass_gC_per_g_soil = cells_per_g_soil * fgC_per_cell * 1e-15, # convert fg to g
-    total_power_W_per_g_soil = MSP_w_gc * biomass_gC_per_g_soil, # multiply by biomass to get total power
+    cells_per_g_soil = case_when(
+      site == "JCR" ~ 4e8,
+      site == "LOM" ~ 1e8
+    ),
+    single_cell_biomass_fg = 100,
+    cell_biomass_fg_per_g_soil = cells_per_g_soil * single_cell_biomass_fg,
+    cell_biomass_g_per_g_soil = cell_biomass_fg_per_g_soil * 1e-15
   )
+
 ```
 
 From Hoehler et al., we apply an estimate of the $\Delta G_r$ of soil aerobic heterotrophic respiration of organic matter:
 
 $$
 \Delta G_r = -4.83 \times 10^{-5} \: J \: (mol \: C)^{-1}
+$$
+
+for the chemical equation:
+
+$$
+CH_2O + O_2 \rightarrow CO_2 + H_2O
+$$
+
+Total power (P) is calculated as the MSP multiplied by total biomass:
+
+$$
+P = W \: (gC)^{-1} \cdot (gC) = W
 $$
 
 therefore, we can calculate the mol C respired per g of soil per second:
@@ -127,9 +155,10 @@ $$
 $$
 
 ```{r}
-growth <- growth |>
+growth_w_biomass_flux <- growth_w_biomass |>
   mutate(
-    deltaG_r_J_per_molC = -4.83e5, # J per mol C
+    deltaG_r_J_per_molC = -4.83e5, # J per mol C respired
+    total_power_W_per_g_soil = MSP_w_gc * cell_biomass_g_per_g_soil,
     molC_respired_per_sec_per_g_soil = total_power_W_per_g_soil /
       abs(deltaG_r_J_per_molC), # mol C per sec per g soil
     umolC_respired_per_sec_per_g_soil = molC_respired_per_sec_per_g_soil * 1e6, # mol to umol
@@ -141,7 +170,7 @@ growth <- growth |>
 ```
 
 ```{r}
-growth |>
+growth_w_biomass_flux |>
   ggplot(aes(x = umolC_respired_per_sec_per_m2_soil, fill = SIP_type)) +
   geom_histogram(bins = 20, color = "white") +
   scale_x_log10() +
@@ -152,8 +181,9 @@ growth |>
 ```
 
 This plot should look similar in shape to the growth rate plot.
+
 ```{r}
-growth |>
+growth_w_biomass_flux |>
   ggplot(
     aes(
       y = umolC_respired_per_sec_per_m2_soil,
@@ -175,7 +205,6 @@ growth |>
 ## Compare to measured CO2 fluxes
 
 Finally, we can compare our inferred respiration rates to the measured CO2 fluxes from the soil cores. We expect that our inferred respiration rates should be lower than the measured CO2 fluxes, since some of the CO2 flux is likely derived from spontaneous, abiotic release of CO2 from soil.
-
 
 ```{r}
 # make this tibble similar to our growth tibble
@@ -227,7 +256,7 @@ time_zero_respiration <- co2_flux |>
 Join the two datasets and clean them up to be comparable for plotting.
 
 ```{r}
-combined <- growth |>
+combined <- growth_w_biomass_flux |>
   filter(!dt_hr %in% c(3, 72)) |> # remove the 3hr and 72 hr timepoints because we don't have CO2 flux data for them
   select(
     clean_id,
@@ -268,7 +297,6 @@ combined <- growth |>
 ```
 
 Plot it
-
 
 ```{r}
 combined |>
