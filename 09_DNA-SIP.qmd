@@ -1,0 +1,128 @@
+---
+title: "Bulk IRMS DNA SIP"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+dna_sip <- readxl::read_excel(
+  "data/DNA-SIP/CaroT 250805 OXS Caro_18O_DNA_SIP P263293.xlsx",
+  sheet = 2
+) |>
+  janitor::clean_names() |>
+  select(-c(comment, tray_name, well_id, type_of_material, analysis_number)) |>
+  mutate(
+    control = if_else(
+      str_detect(sample_id, "SUCR") | str_detect(sample_id, "MQ"),
+      TRUE,
+      FALSE
+    ),
+    site = case_when(
+      str_detect(sample_id, "JR") ~ "JCR",
+      str_detect(sample_id, "LR") ~ "LOM",
+      str_detect(sample_id, "JS") ~ "JCR",
+      str_detect(sample_id, "LS") ~ "LOM",
+      TRUE ~ NA
+    ),
+    condition = case_when(
+      str_detect(sample_id, "JR") ~ "Drought",
+      str_detect(sample_id, "LR") ~ "Drought",
+      str_detect(sample_id, "JS") ~ "Control",
+      str_detect(sample_id, "LS") ~ "Control",
+      TRUE ~ NA
+    ),
+    dt_hr = case_when(
+      str_detect(sample_id, "0") ~ 0,
+      str_detect(sample_id, "24") ~ 24,
+      str_detect(sample_id, "72") ~ 72,
+      TRUE ~ NA
+    ),
+    rep = case_when(
+      str_detect(sample_id, "-1") ~ 1,
+      str_detect(sample_id, "-2") ~ 2,
+      str_detect(sample_id, "-3") ~ 3,
+      TRUE ~ NA
+    )
+  )
+glimpse(dna_sip)
+```
+
+```{r}
+dna_sip |> pull(total_o_mg) |> mean()
+dna_sip |> pull(total_o_mg) |> sd()
+```
+
+```{r}
+controls <- dna_sip |> filter(control)
+
+controls |>
+  ggplot(aes(x = sample_id, y = d18ovsmow)) +
+  geom_point()
+
+controls_summary <- controls |>
+  summarise(
+    mean_d18o = mean(d18ovsmow),
+    sd_d18o = sd(d18ovsmow)
+  )
+```
+
+
+```{r}
+dna_sip_summarized <- dna_sip |>
+  filter(!control) |>
+  # summarize triplicates
+  group_by(condition, site, dt_hr) |>
+  summarise(
+    mean_d18ovsmow = mean(d18ovsmow),
+    sd_d18ovsmow = sd(d18ovsmow)
+  )
+
+dna_sip_summarized |>
+  mutate(condition = factor(condition, levels = c("Drought", "Control"))) |>
+  ggplot(
+    aes(
+      x = dt_hr,
+      y = mean_d18ovsmow,
+      shape = condition
+    )
+  ) +
+  geom_line() +
+  geom_hline(
+    yintercept = controls_summary$mean_d18o,
+    color = "darkblue",
+    linetype = "dotted"
+  ) +
+  geom_pointrange(
+    aes(
+      fill = condition,
+      ymin = mean_d18ovsmow - sd_d18ovsmow,
+      ymax = mean_d18ovsmow + sd_d18ovsmow
+    ),
+    color = "black",
+    shape = 21
+  ) +
+  facet_grid(site ~ condition) +
+  scale_fill_manual(values = c("#ffac47", "#4e80c7")) +
+  theme_minimal() +
+  labs(
+    x = "Incubation Time (hr)",
+    y = latex2exp::TeX("$\\delta^{18}O_{VSMOW}$ (‰)")
+  ) +
+  theme(
+    panel.grid.minor.x = element_blank()
+  )
+```
+
+save cache
+
+```{r}
+saveRDS(dna_sip_summarized, file = "cache/dna_sip_data.rds")
+```
