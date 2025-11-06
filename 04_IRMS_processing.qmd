@@ -9,7 +9,7 @@ editor_options:
 
 ```{r}
 library(tidyverse)
-library(pilot)
+#library(pilot)
 
 source("source/F2H_to_d2H_VSMOW.R")
 source("source/d2H_VSMOW_to_F2H.R")
@@ -157,7 +157,7 @@ SIP_data |>
     x = area2
   ) +
   geom_histogram(binwidth = 0.25) +
-  pilot::theme_pilot()
+  theme_minimal()
 ```
 
 ### Inspect d2H
@@ -178,7 +178,7 @@ SIP_data |>
   geom_line() +
   scale_color_viridis_c(end = 0.9, option = "inferno") +
   facet_grid(vars(SIP_type, site, drought)) +
-  pilot::theme_pilot() +
+  theme_minimal() +
   theme(
     legend.position = "none"
   )
@@ -199,7 +199,7 @@ SIP_data |>
   geom_line() +
   scale_color_viridis_c(end = 0.9, option = "inferno") +
   facet_grid(vars(SIP_type, site, drought)) +
-  pilot::theme_pilot() +
+  theme_minimal() +
   theme(
     legend.position = "none"
   )
@@ -230,7 +230,7 @@ SIP_data_wm |>
   geom_line(data = function(df) df |> filter(is_wm), color = "red") +
   geom_point(shape = 1, size = 2) +
   facet_grid(vars(SIP_type, site, drought)) +
-  pilot::theme_pilot() +
+  theme_minimal() +
   theme(
     legend.position = "none"
   )
@@ -367,7 +367,7 @@ p_growth <- growth_data |>
     y = latex2exp::TeX("Growth Rate $(d^{-1})$"),
     fill = "Generation Time (days)"
   ) +
-  pilot::theme_pilot() +
+  theme_minimal() +
   guides(
     fill = guide_colourbar(title.position = "left")
   ) +
@@ -519,6 +519,7 @@ p_vapor_growth <- vapor_growth_data |>
   ) +
   #scale_fill_gradient(trans = "log10", low = "white", high = "darkblue") +
   facet_grid(site ~ drought, scale = "free_y") +
+  coord_cartesian(ylim = c(0, 0.003)) +
   labs(
     x = "Time after rewetting (hr)",
     y = latex2exp::TeX("Growth Rate $(d^{-1})$"),
