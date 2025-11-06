@@ -12,6 +12,7 @@ library(tidyverse)
 library(vegan)
 library(goeveg)
 library(ggbiplot)
+library(tidyplots)
 ```
 
 # LC-MS dataset
@@ -96,12 +97,12 @@ p_lcms_tile <- lcms |>
 
 p_lcms_tile
 
-ggsave(
-  p_lcms_tile,
-  filename = "fig_output/lcms_tile_plot.pdf",
-  width = 10,
-  height = 12
-)
+# ggsave(
+#   p_lcms_tile,
+#   filename = "fig_output/lcms_tile_plot.pdf",
+#   width = 10,
+#   height = 12
+# )
 ```
 
 ```{r}
@@ -153,6 +154,23 @@ lcms |>
     panel.grid = element_blank(),
     strip.background = element_blank()
   )
+```
+
+```{r}
+lcms |>
+  filter(metabolite_name == "betaine") |>
+  filter(!is.na(site)) |>
+  group_by(site) |>
+  mutate(normalized = peak_height / max(peak_height, na.rm = TRUE)) |>
+  ungroup() |>
+  tidyplot(x = dt, y = normalized, color = condition) |>
+  add_mean_bar(alpha = 0.4) |>
+  add_sem_errorbar() |>
+  add(labs(x = "Time after rewetting", y = "Normalized Abundance")) |>
+  add(scale_y_continuous(labels = scales::label_percent(), expand = FALSE)) |>
+  adjust_size(height = 60, width = 60) |>
+  split_plot(by = site)
+
 ```
 
 Convert data to matrix format for NMDS
