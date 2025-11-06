@@ -154,7 +154,7 @@ combined <- bind_rows(
 
 
 ```{r}
-combined |>
+combined_plot <- combined |>
   mutate(
     site = case_when(
       site == "JCR" ~ "Jalama Canyon Ranch",
@@ -174,12 +174,26 @@ combined |>
   ) +
   geom_line(size = 1) +
   scale_y_continuous(labels = scales::percent) +
-  facet_wrap(~site, scales = "free_x") +
+  facet_wrap(~site, scales = "free_x", ncol = 1) +
+  scale_color_manual(values = c('Drought' = '#fc9403', 'Control' = '#03b1fc')) +
   theme_minimal() +
   labs(
     x = "",
     y = "Volumetric Water Content (VWC)",
-    color = "Site and Condition"
+    color = ""
   ) +
-  theme(panel.grid.minor = element_blank())
+  theme(
+    legend.title = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.background = element_rect(fill = "white", color = "black")
+  )
+combined_plot
+
+ggsave(
+  filename = "fig_output/TMS_VWC_data.pdf",
+  plot = combined_plot,
+  width = 3.8,
+  height = 4.2,
+  units = "in"
+)
 ```

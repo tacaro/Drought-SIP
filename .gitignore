@@ -8,3 +8,4 @@ fig_output/*
 Calculate-2H-incorporated.R
 data.csv
 *.XLS
+99_tidy_anova_example.qmd
