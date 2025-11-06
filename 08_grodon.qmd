@@ -1,0 +1,94 @@
+---
+title: "gRodon2: Estimating Growth Rates from Genomes"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+library(ggdist)
+library(broom)
+library(purrr)
+library(effectsize)
+```
+
+
+```{r}
+grodon <- read_rds("cache/grodon_data_cache.RDS") |>
+  mutate(
+    site = case_when(
+      str_detect(bin_name, "J") ~ "JCR",
+      str_detect(bin_name, "L") ~ "LOM"
+    ),
+    condition = case_when(
+      str_detect(bin_name, "S") ~ "Control",
+      str_detect(bin_name, "R") ~ "Drought"
+    ),
+    timepoint = case_when(
+      str_detect(bin_name, "P") ~ "Before Rewetting",
+      TRUE ~ "72 hr after rewetting"
+    ),
+    timepoint = forcats::fct_rev(timepoint)
+  )
+```
+
+
+```{r}
+grodon |>
+  mutate(y_pos = ifelse(condition == "Drought", 0.2, -0.2)) |>
+  filter(TG_hr < 15) |>
+  ggplot(aes(x = TG_hr, y = 0)) +
+  stat_halfeye(
+    aes(
+      side = ifelse(condition == "Drought", "top", "bottom"),
+      fill = condition,
+      y = ifelse(condition == "Drought", 0.1, -0.1)
+    ),
+    color = "black",
+    slab_color = "black",
+    slab_linewidth = 0.25
+  ) +
+  geom_point(
+    aes(y = ifelse(condition == "Drought", 0.05, -0.05), color = condition),
+    alpha = 0.5,
+    shape = 124
+  ) +
+  geom_hline(yintercept = 0, color = "gray") +
+  scale_fill_manual(values = c('Drought' = '#fc9403', 'Control' = '#03b1fc')) +
+  scale_color_manual(values = c('Drought' = '#fc9403', 'Control' = '#03b1fc')) +
+  facet_wrap(vars(site, timepoint)) +
+  coord_cartesian(xlim = c(0, 15), ylim = c(-0.5, 0.5)) +
+  theme_minimal() +
+  labs(
+    x = "CUB-Estimated Maximum Doubling Time (hr)"
+  ) +
+  theme(
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+
+```{r}
+grodon_anova <- grodon |>
+  group_by(site, timepoint) |>
+  nest() |>
+  mutate(
+    model = map(data, ~ aov(TG_hr ~ condition, data = .x)),
+    anova = map(model, tidy),
+    eta_sq = map(model, ~ eta_squared(.x) |> filter(Parameter == "condition"))
+  ) |>
+  unnest(c(anova, eta_sq)) |>
+  filter(term == "condition")
+
+grodon_anova |>
+  select(site, timepoint, statistic, p.value, Eta2)
+```
+
+No pairs are statistically significant at alpha = 0.05 level. Eta2 effect sizes are negligible. However, there are visual differences in the median values between JCR drought and control samples.
