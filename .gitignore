@@ -11,3 +11,4 @@ data.csv
 99_tidy_anova_example.qmd
 cache/*
 cache/dna_sip_data.rds
+cache/dna_sip_data.rds
