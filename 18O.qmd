@@ -14,7 +14,7 @@ library(tidyverse)
 
 ### Calcs
 
-The isotope ratio of VSMOW is `0.0020052` or 2005.20 ppm.
+The 18/16 oxygen isotope ratio of VSMOW is `0.0020052` or 2005.20 ppm.
 
 ```{r}
 R18O_VSMOW = 0.0020052
@@ -26,7 +26,7 @@ df <- tibble(
   d18O_permil = d18O * 1000
 )
 
-df |> 
+df |>
   ggplot(
     aes(
       x = F18O,
