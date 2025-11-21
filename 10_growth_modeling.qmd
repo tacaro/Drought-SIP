@@ -1,0 +1,211 @@
+---
+title: "Growth modeling"
+format: html
+---
+
+## Setup
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from scipy.stats import gamma
+
+```
+
+## Define the 'Cell' class
+
+```{python}
+class Cell:
+    def __init__(
+        self, initial_size, biomass_growth_rate, dna_replication_rate, parent_id=None
+    ):
+        self.initial_size = initial_size
+        self.biomass = initial_size
+        self.biomass_added = 0.0
+        self.dna = 1.0  # start as monoploid
+        self.biomass_growth_rate = biomass_growth_rate
+        self.dna_replication_rate = dna_replication_rate
+        self.time = 0.0
+        self.divided = False
+        self.id = id(self) if parent_id is None else f"{parent_id}_child"
+        self.history = {"time": [], "biomass": [], "dna": []}
+        self.replication_started = False
+
+    def grow(self, dt):
+        """Simulate growth over timestep dt with constraints."""
+        # Update biomass and cap it at 2x initial size "sizer regulation"
+        self.biomass += self.biomass_growth_rate * dt
+        # keep track of biomass added "adder regulation"
+        self.biomass_added += self.biomass_growth_rate * dt
+        # if self.biomass > 2 * self.initial_size:
+        #    self.biomass = 2 * self.initial_size
+        self.time += dt
+
+        # Start DNA replication only when threshold biomass reached
+        if not self.replication_started and self.biomass >= 1.8 * self.initial_size:
+            self.replication_started = True
+
+        # Replicate DNA if allowed
+        if self.replication_started:
+            self.dna += self.dna_replication_rate * dt
+            # if self.dna >= 2.0:
+            #    self.dna = 1.0
+
+        # Record state
+        self.history["time"].append(self.time)
+        self.history["biomass"].append(self.biomass)
+        self.history["dna"].append(self.dna)
+
+        # Check whether division condition has been met
+        # original "sizer regulation":
+        # if self.biomass >= 2 * self.initial_size and self.dna >= 1.0:
+        #    return self.divide()
+        # new "adder regulation":
+        # check for 1 unit of biomass added and diploid condition met
+        if self.biomass_added >= 1 and self.dna >= 2.0:
+            return self.divide()
+        return None
+
+    def divide(self):
+        """Handle cell division event and return a daughter cell."""
+        self.divided = True
+        self.biomass /= 2  # divide cell biomass in half
+        self.dna = 1.0  # set dna back to monoploidy
+        self.biomass_added = 0.0  # reset amount of biomass added
+        self.initial_size = self.biomass
+        self.replication_started = False
+        daughter = Cell(
+            initial_size=self.biomass,
+            biomass_growth_rate=self.biomass_growth_rate,
+            dna_replication_rate=self.dna_replication_rate,
+            parent_id=self.id,
+        )
+        return daughter
+```
+
+## define simulation function
+
+```{python}
+def simulate_population(initial_cell, total_time=20, dt=0.1):
+    """Run a colony simulation starting from one cell."""
+    cells = [initial_cell]
+    all_cells = [initial_cell]
+    t = 0.0
+
+    while t < total_time:
+        new_cells = []
+        for cell in list(cells):
+            daughter = cell.grow(dt)
+            if daughter:
+                new_cells.append(daughter)
+        cells.extend(new_cells)
+        all_cells.extend(new_cells)
+        t += dt
+
+    return all_cells
+```
+
+## run multiple simulations
+
+```{python}
+def run_many_simulations(
+    n_sims=20, growth_mean=0.2, growth_std=0.05, total_time=30, dt=0.1
+):
+    """Run many simulations using a distribution of biomass growth rates."""
+    results = []
+
+    # Sample growth rates from a normal distribution
+    growth_rates = np.random.normal(loc=growth_mean, scale=growth_std, size=n_sims)
+    # OR just use a set of growth rates:
+    # growth_rates = np.logspace(np.log10(0.001), np.log10(0.1), n_sims)
+    # OR use a gamma distribution of growth rates:
+    # growth_shape = (growth_mean / growth_std) ** 2
+    # growth_scale = (growth_std**2) / growth_mean
+    # growth_rates = gamma.rvs(a=growth_shape, scale=growth_scale, size=n_sims)
+
+    for i, rate in enumerate(growth_rates):
+        cell = Cell(
+            initial_size=1.0, biomass_growth_rate=rate, dna_replication_rate=0.1
+        )
+        all_cells = simulate_population(cell, total_time=total_time, dt=dt)
+
+        # Collect results from each cell
+        for j, c in enumerate(all_cells):
+            df = pd.DataFrame(
+                {
+                    "time": c.history["time"],
+                    "biomass": c.history["biomass"],
+                    "dna": c.history["dna"],
+                    "cell_index": j,
+                    "sim_id": i,
+                    "growth_rate": rate,
+                }
+            )
+            results.append(df)
+
+    # Concatenate into one DataFrame
+    full_df = pd.concat(results, ignore_index=True)
+    return full_df
+```
+
+## define plot function
+
+```{python}
+def plot_growth(cells):
+    """Plot biomass and DNA replication over time for each cell side-by-side.
+    Line color depends on cell number; no legend shown.
+    """
+    num_cells = len(cells)
+    colors = plt.cm.viridis(np.linspace(0, 1, num_cells))
+
+    # Create figure with two subplots side-by-side
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharex=True)
+    ax_biomass, ax_dna = axes
+
+    # --- Biomass subplot ---
+    for i, cell in enumerate(cells):
+        ax_biomass.plot(
+            cell.history["time"], cell.history["biomass"], color=colors[i], alpha=0.8
+        )
+    ax_biomass.set_xlabel("Time")
+    ax_biomass.set_ylabel("Biomass")
+    ax_biomass.set_title("Biomass Growth Over Time (Color by Cell ID)")
+
+    # --- DNA subplot ---
+    for i, cell in enumerate(cells):
+        ax_dna.plot(
+            cell.history["time"], cell.history["dna"], color=colors[i], alpha=0.8
+        )
+    ax_dna.set_xlabel("Time")
+    ax_dna.set_ylabel("DNA Replication Progress")
+    ax_dna.set_title("DNA Replication Over Time (Color by Cell ID)")
+
+    # Adjust layout for better spacing
+    plt.tight_layout()
+    plt.show()
+```
+
+## run simulation
+
+```{python}
+root_cell = Cell(initial_size=1.0, biomass_growth_rate=0.02, dna_replication_rate=0.1)
+cells = simulate_population(root_cell, total_time=200, dt=0.1)
+plot_growth(cells)
+```
+
+```{python}
+df = run_many_simulations(
+    n_sims=500, growth_mean=0.01, growth_std=0.005, total_time=200, dt=0.1
+)
+
+print(df.head())
+print(f"\nTotal records: {len(df)}")
+
+# Save to CSV
+save_path = "cache/bacteria_simulation_results_norm_adder.csv"
+df.to_csv(save_path, index=False)
+print(f"Results saved to {save_path}")
+
+
+```
