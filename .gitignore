@@ -9,3 +9,5 @@ Calculate-2H-incorporated.R
 data.csv
 *.XLS
 99_tidy_anova_example.qmd
+cache/*
+cache/dna_sip_data.rds
