@@ -1,0 +1,485 @@
+---
+title: "Growth modeling"
+format: html
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+
+df <- read_csv("cache/bacteria_simulation_results_norm_adder2.csv") |>
+  mutate(sim_id = as.factor(sim_id)) |>
+  group_by(sim_id) |>
+  # calculate cumulative biosynthesis for biomass and dna
+  mutate(
+    biomass_increase = biomass - lag(biomass, default = first(biomass)),
+    dna_increase = dna - lag(dna, default = first(dna)),
+    cbiomass = cumsum(biomass_increase),
+    cdna = cumsum(dna_increase),
+    ccbiomass = cumsum(cbiomass),
+    ccdna = cumsum(cdna),
+    n = row_number()
+  ) |>
+  ungroup() |>
+  filter(growth_rate > 0) |> # ignore negative growth rates
+  filter(n <= 2000) |> # trim down the data
+  pivot_longer(
+    cols = c(ccbiomass, ccdna),
+    values_to = "cumulative_abundance",
+    names_to = "cumulative_component"
+  ) |>
+  mutate(
+    cumulative_component = recode(
+      cumulative_component,
+      "ccbiomass" = "Biomass",
+      "ccdna" = "DNA"
+    )
+  ) |>
+  group_by(cumulative_component, n) |>
+  mutate(
+    mean_biomass = mean(cumulative_abundance),
+    sd_biomass = sd(cumulative_abundance)
+  ) |>
+  ungroup()
+```
+
+```{r}
+
+# summary endpoints for imaginary sip
+biomass_endpoint <- df |>
+  filter(n > 0 & n <= 750) |>
+  filter(cumulative_component == "Biomass") |>
+  pull(mean_biomass) |>
+  max()
+biomass_endpoint / 750
+
+dna_endpoint <- df |>
+  filter(n > 0 & n <= 750) |>
+  filter(cumulative_component == "DNA") |>
+  pull(mean_biomass) |>
+  max()
+
+dna_endpoint / 750
+
+endpoint_df <- tibble(
+  n = c(750, 750),
+  mean_biomass_endpoint = c(biomass_endpoint, dna_endpoint),
+  cumulative_component = c("Biomass", "DNA"),
+  apparent_rate = c(biomass_endpoint / 750, dna_endpoint / 750),
+  label = paste0(round(apparent_rate, 3), "/t")
+)
+
+df |>
+  filter(sim_id == 1) |>
+  pivot_longer(
+    cols = c(cbiomass, cdna),
+    values_to = "value",
+    names_to = "component"
+  ) |>
+  ggplot(
+    aes(
+      x = n,
+      y = value
+    )
+  ) +
+  geom_line(aes(group = sim_id, color = growth_rate)) +
+  scale_color_viridis_c() +
+  facet_wrap(vars(component), scales = "free_y")
+
+
+df |>
+  ggplot(
+    aes(
+      x = n,
+      y = cumulative_abundance,
+      color = growth_rate,
+    )
+  ) +
+  geom_line(aes(group = sim_id), alpha = 0.3) +
+  geom_line(aes(y = mean_biomass), color = "black", linewidth = 1) +
+  geom_point(
+    data = endpoint_df,
+    aes(x = n, y = mean_biomass_endpoint),
+    color = "black",
+    fill = "red",
+    shape = 21
+  ) +
+  geom_segment(
+    data = endpoint_df,
+    xend = 0,
+    yend = 0,
+    aes(x = n, y = mean_biomass_endpoint),
+    color = "red",
+    linetype = "dotted"
+  ) +
+  geom_text(
+    x = 300,
+    data = endpoint_df,
+    aes(label = label, y = mean_biomass_endpoint),
+    color = "red"
+  ) +
+  scale_color_viridis_c(end = 0.9) +
+  facet_wrap(vars(cumulative_component), scales = "free_y") +
+  coord_cartesian(expand = FALSE) +
+  theme_minimal() +
+  labs(
+    x = "Time (Arbitrary Units, t)",
+    y = "Cumulative biosynthesis (Arbitrary Units)",
+    color = latex2exp::TeX("Growth Rate ($t^{-1}$)")
+  ) +
+  guides(fill = guide_colourbar(title.position = "left")) +
+  theme(
+    panel.border = element_rect(color = "black"),
+    panel.grid = element_blank(),
+    #axis.text.y = element_blank(),
+    strip.text = element_text(face = "bold"),
+    legend.key.height = unit(0.2, "cm"),
+    legend.key.width = unit(1, "cm"),
+    legend.position = "bottom"
+  )
+```
+
+
+```{r}
+df_norm <- df |>
+  select(
+    n,
+    sim_id,
+    growth_rate,
+    cell_index,
+    cumulative_component,
+    cumulative_abundance,
+    mean_biomass
+  ) |>
+  group_by(cumulative_component) |>
+  mutate(
+    frac_abundance = cumulative_abundance / max(cumulative_abundance),
+    frac_mean_biomass = mean_biomass / max(mean_biomass)
+  )
+
+biomass_endpoint_norm <- df_norm |>
+  filter(n > 0 & n <= 500) |>
+  filter(cumulative_component == "Biomass") |>
+  pull(frac_mean_biomass) |>
+  max()
+
+
+dna_endpoint_norm <- df_norm |>
+  filter(n > 0 & n <= 500) |>
+  filter(cumulative_component == "DNA") |>
+  pull(frac_mean_biomass) |>
+  max()
+
+endpoint_df_norm <- tibble(
+  n = c(500, 500),
+  mean_biomass_endpoint = c(biomass_endpoint_norm, dna_endpoint_norm),
+  cumulative_component = c("Biomass", "DNA"),
+  apparent_rate = c(biomass_endpoint_norm / 500, dna_endpoint_norm / 500),
+  label = paste0(round(apparent_rate, 5), "/t")
+)
+
+p_norm <- df_norm |>
+  ggplot(
+    aes(
+      x = n,
+      y = frac_abundance,
+      color = growth_rate,
+    )
+  ) +
+  geom_abline(slope = 1 / 2000, linetype = "dashed") +
+  geom_line(aes(group = sim_id), alpha = 0.3) +
+  geom_line(aes(y = frac_mean_biomass), color = "black", linewidth = 1) +
+  geom_point(
+    data = endpoint_df_norm,
+    aes(x = n, y = mean_biomass_endpoint),
+    color = "black",
+    fill = "red",
+    shape = 21
+  ) +
+  geom_segment(
+    data = endpoint_df_norm,
+    xend = 0,
+    yend = 0,
+    aes(x = n, y = mean_biomass_endpoint),
+    color = "red",
+    linetype = "dotted"
+  ) +
+  # geom_text(
+  #   x = 300,
+  #   data = endpoint_df_norm,
+  #   aes(label = label, y = mean_biomass_endpoint),
+  #   color = "red"
+  # ) +
+  facet_wrap(vars(cumulative_component), scales = "free_y") +
+  scale_color_viridis_c(end = 0.9) +
+  coord_cartesian(expand = FALSE) +
+  theme_minimal() +
+  labs(
+    x = "Time (Arbitrary Units, t)",
+    y = "Cumulative biosynthesis (Arbitrary Units)",
+    color = latex2exp::TeX("Growth Rate ($t^{-1}$)")
+  ) +
+  guides(fill = guide_colourbar(title.position = "left")) +
+  theme(
+    panel.border = element_rect(color = "black"),
+    panel.grid = element_blank(),
+    axis.text.y = element_blank(),
+    strip.text = element_text(face = "bold"),
+    legend.key.height = unit(0.2, "cm"),
+    legend.key.width = unit(1, "cm"),
+    legend.position = "bottom"
+  )
+p_norm
+```
+
+```{r}
+
+# plot normal distribution with xbar = 0.2 and sigma = 0.05
+x_norm <- tibble(
+  x = rnorm(10000, mean = 0.2, sd = 0.05)
+)
+
+p_x_norm <- x_norm |>
+  ggplot() +
+  aes(x = x) +
+  ggdist::stat_halfeye(
+    color = "black",
+    fill = "lightblue"
+  ) +
+  annotate(
+    geom = "text",
+    label = "µ = 0.2\nσ = 0.05",
+    x = 0.3,
+    y = 0.5,
+    size = 5
+  ) +
+  theme_minimal() +
+  labs(
+    x = "",
+    y = "",
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    axis.text.y = element_blank(),
+    panel.border = element_rect(color = "black")
+  )
+
+p_x_norm
+```
+
+# now for the gamma distribution
+
+
+```{r}
+df2 <- read_csv("cache/bacteria_simulation_results_gamma_dist.csv") |>
+  mutate(sim_id = as.factor(sim_id)) |>
+  group_by(sim_id) |>
+  # calculate cumulative biosynthesis for biomass and dna
+  mutate(
+    biomass_increase = biomass - lag(biomass, default = first(biomass)),
+    dna_increase = dna - lag(dna, default = first(dna)),
+    cbiomass = cumsum(biomass_increase),
+    cdna = cumsum(dna_increase),
+    ccbiomass = cumsum(cbiomass),
+    ccdna = cumsum(cdna),
+    n = row_number()
+  ) |>
+  ungroup() |>
+  filter(growth_rate > 0) |> # ignore negative growth rates
+  filter(n <= 2000) |> # trim down the data
+  pivot_longer(
+    cols = c(ccbiomass, ccdna),
+    values_to = "cumulative_abundance",
+    names_to = "cumulative_component"
+  ) |>
+  mutate(
+    cumulative_component = recode(
+      cumulative_component,
+      "ccbiomass" = "Biomass",
+      "ccdna" = "DNA"
+    )
+  ) |>
+  group_by(cumulative_component, n) |>
+  mutate(
+    mean_biomass = mean(cumulative_abundance),
+    sd_biomass = sd(cumulative_abundance)
+  ) |>
+  ungroup()
+```
+
+
+```{r}
+
+# summary endpoints for imaginary sip
+biomass_endpoint2 <- df2 |>
+  filter(n > 0 & n <= 750) |>
+  filter(cumulative_component == "Biomass") |>
+  pull(mean_biomass) |>
+  max()
+biomass_endpoint2 / 750
+
+dna_endpoint2 <- df2 |>
+  filter(n > 0 & n <= 750) |>
+  filter(cumulative_component == "DNA") |>
+  pull(mean_biomass) |>
+  max()
+
+dna_endpoint2 / 750
+
+endpoint_df2 <- tibble(
+  n = c(750, 750),
+  mean_biomass_endpoint = c(biomass_endpoint2, dna_endpoint2),
+  cumulative_component = c("Biomass", "DNA"),
+  apparent_rate = c(biomass_endpoint2 / 750, dna_endpoint2 / 750),
+  label = paste0(round(apparent_rate, 3), "/t")
+)
+
+
+df2 |>
+  ggplot(
+    aes(
+      x = n,
+      y = cumulative_abundance,
+      color = growth_rate,
+    )
+  ) +
+  geom_line(aes(group = sim_id), alpha = 0.3) +
+  geom_line(aes(y = mean_biomass), color = "black", linewidth = 1) +
+  geom_point(
+    data = endpoint_df,
+    aes(x = n, y = mean_biomass_endpoint),
+    color = "black",
+    fill = "red",
+    shape = 21
+  ) +
+  geom_segment(
+    data = endpoint_df,
+    xend = 0,
+    yend = 0,
+    aes(x = n, y = mean_biomass_endpoint),
+    color = "red",
+    linetype = "dotted"
+  ) +
+  geom_text(
+    x = 300,
+    data = endpoint_df,
+    aes(label = label, y = mean_biomass_endpoint),
+    color = "red"
+  ) +
+  scale_color_viridis_c(end = 0.9) +
+  facet_wrap(vars(cumulative_component), scales = "free_y") +
+  coord_cartesian(expand = FALSE) +
+  theme_minimal() +
+  labs(
+    x = "Time (Arbitrary Units, t)",
+    y = "Cumulative biosynthesis (Arbitrary Units)",
+    color = latex2exp::TeX("Growth Rate ($t^{-1}$)")
+  ) +
+  guides(fill = guide_colourbar(title.position = "left")) +
+  theme(
+    panel.border = element_rect(color = "black"),
+    panel.grid = element_blank(),
+    axis.text.y = element_blank(),
+    strip.text = element_text(face = "bold"),
+    legend.key.height = unit(0.2, "cm"),
+    legend.key.width = unit(1, "cm"),
+    legend.position = "bottom"
+  )
+```
+
+
+```{r}
+df2_norm <- df2 |>
+  select(
+    n,
+    sim_id,
+    growth_rate,
+    cell_index,
+    cumulative_component,
+    cumulative_abundance,
+    mean_biomass
+  ) |>
+  group_by(cumulative_component) |>
+  mutate(
+    frac_abundance = cumulative_abundance / max(cumulative_abundance),
+    frac_mean_biomass = mean_biomass / max(mean_biomass)
+  )
+
+biomass_endpoint2_norm <- df2_norm |>
+  filter(n > 0 & n <= 500) |>
+  filter(cumulative_component == "Biomass") |>
+  pull(frac_mean_biomass) |>
+  max()
+
+
+dna_endpoint2_norm <- df_norm |>
+  filter(n > 0 & n <= 500) |>
+  filter(cumulative_component == "DNA") |>
+  pull(frac_mean_biomass) |>
+  max()
+
+endpoint_df2_norm <- tibble(
+  n = c(500, 500),
+  mean_biomass_endpoint = c(biomass_endpoint2_norm, dna_endpoint2_norm),
+  cumulative_component = c("Biomass", "DNA"),
+  apparent_rate = c(biomass_endpoint2_norm / 500, dna_endpoint2_norm / 500),
+  label = paste0(round(apparent_rate, 5), "/t")
+)
+
+p2_norm <- df2_norm |>
+  ggplot(
+    aes(
+      x = n,
+      y = frac_abundance,
+      color = growth_rate,
+    )
+  ) +
+  geom_abline(slope = 1 / 2000, linetype = "dashed") +
+  geom_line(aes(group = sim_id)) +
+  geom_line(aes(y = frac_mean_biomass), color = "black", linewidth = 1) +
+  geom_point(
+    data = endpoint_df2_norm,
+    aes(x = n, y = mean_biomass_endpoint),
+    color = "black",
+    fill = "red",
+    shape = 21
+  ) +
+  geom_segment(
+    data = endpoint_df2_norm,
+    xend = 0,
+    yend = 0,
+    aes(x = n, y = mean_biomass_endpoint),
+    color = "red",
+    linetype = "dotted"
+  ) +
+  # geom_text(
+  #   x = 300,
+  #   data = endpoint_df_norm,
+  #   aes(label = label, y = mean_biomass_endpoint),
+  #   color = "red"
+  # ) +
+  facet_wrap(vars(cumulative_component), scales = "free_y") +
+  scale_color_viridis_c(end = 0.9) +
+  coord_cartesian(expand = FALSE) +
+  theme_minimal() +
+  labs(
+    x = "Time (Arbitrary Units, t)",
+    y = "Cumulative biosynthesis (Arbitrary Units)",
+    color = latex2exp::TeX("Growth Rate ($t^{-1}$)")
+  ) +
+  guides(fill = guide_colourbar(title.position = "left")) +
+  theme(
+    panel.border = element_rect(color = "black"),
+    panel.grid = element_blank(),
+    axis.text.y = element_blank(),
+    strip.text = element_text(face = "bold"),
+    legend.key.height = unit(0.2, "cm"),
+    legend.key.width = unit(1, "cm"),
+    legend.position = "bottom"
+  )
+p2_norm
+```
