@@ -38,6 +38,8 @@ class Cell:
         self.biomass += self.biomass_growth_rate * dt
         # keep track of biomass added "adder regulation"
         self.biomass_added += self.biomass_growth_rate * dt
+        if self.biomass_added > 2 * self.initial_size:
+            self.biomass_added = 2 * self.initial_size
         # if self.biomass > 2 * self.initial_size:
         #    self.biomass = 2 * self.initial_size
         self.time += dt
@@ -49,6 +51,8 @@ class Cell:
         # Replicate DNA if allowed
         if self.replication_started:
             self.dna += self.dna_replication_rate * dt
+            if self.dna > 5.0:
+                self.dna = 5.0
             # if self.dna >= 2.0:
             #    self.dna = 1.0
 
@@ -63,7 +67,7 @@ class Cell:
         #    return self.divide()
         # new "adder regulation":
         # check for 1 unit of biomass added and diploid condition met
-        if self.biomass_added >= 1 and self.dna >= 2.0:
+        if self.biomass_added >= 1 and self.dna >= 5.0:
             return self.divide()
         return None
 
@@ -71,7 +75,7 @@ class Cell:
         """Handle cell division event and return a daughter cell."""
         self.divided = True
         self.biomass /= 2  # divide cell biomass in half
-        self.dna = 1.0  # set dna back to monoploidy
+        self.dna /= 2  # set dna back to monoploidy
         self.biomass_added = 0.0  # reset amount of biomass added
         self.initial_size = self.biomass
         self.replication_started = False
@@ -203,7 +207,7 @@ print(df.head())
 print(f"\nTotal records: {len(df)}")
 
 # Save to CSV
-save_path = "cache/bacteria_simulation_results_norm_adder.csv"
+save_path = "cache/bacteria_simulation_results_norm_adder_polyploidy.csv"
 df.to_csv(save_path, index=False)
 print(f"Results saved to {save_path}")
 
