@@ -9,14 +9,17 @@ format: html
 library(tidyverse)
 ```
 
-```{r}
+Monoploidy
 
-df <- read_csv("cache/bacteria_simulation_results_norm_adder2.csv") |>
+```{r}
+monoploidy <- read_csv("cache/bacteria_simulation_results_norm_adder3.csv") |>
   mutate(sim_id = as.factor(sim_id)) |>
+  mutate(ploidy = "Monoploid") |>
   group_by(sim_id) |>
   # calculate cumulative biosynthesis for biomass and dna
   mutate(
     biomass_increase = biomass - lag(biomass, default = first(biomass)),
+    increment = pmax(biomass - lag(biomass, default = first(biomass)), 0),
     dna_increase = dna - lag(dna, default = first(dna)),
     cbiomass = cumsum(biomass_increase),
     cdna = cumsum(dna_increase),
@@ -28,15 +31,15 @@ df <- read_csv("cache/bacteria_simulation_results_norm_adder2.csv") |>
   filter(growth_rate > 0) |> # ignore negative growth rates
   filter(n <= 2000) |> # trim down the data
   pivot_longer(
-    cols = c(ccbiomass, ccdna),
+    cols = c(cbiomass, cdna),
     values_to = "cumulative_abundance",
     names_to = "cumulative_component"
   ) |>
   mutate(
     cumulative_component = recode(
       cumulative_component,
-      "ccbiomass" = "Biomass",
-      "ccdna" = "DNA"
+      "cbiomass" = "Lipid",
+      "cdna" = "DNA"
     )
   ) |>
   group_by(cumulative_component, n) |>
@@ -45,7 +48,173 @@ df <- read_csv("cache/bacteria_simulation_results_norm_adder2.csv") |>
     sd_biomass = sd(cumulative_abundance)
   ) |>
   ungroup()
+
+p_biomass_dynamics_mono <- monoploidy |>
+  mutate(sim_id = as.numeric(sim_id)) |>
+  filter(sim_id > 0, sim_id < 20) |>
+  ggplot(
+    aes(
+      x = n,
+      y = cumulative_abundance
+    )
+  ) +
+  geom_line(aes(group = sim_id, color = growth_rate), alpha = 0.25) +
+  geom_line(aes(y = mean_biomass), color = "black", linewidth = 1) +
+  geom_hline(yintercept = 0.8, linetype = "dashed", color = "black") +
+  coord_cartesian(expand = FALSE) +
+  facet_wrap(vars(cumulative_component)) +
+  scale_color_viridis_c(end = 0.9) +
+  theme_minimal() +
+  theme(
+    panel.border = element_rect(color = "black"),
+    panel.grid = element_blank(),
+    legend.key.height = unit(0.2, "cm"),
+    legend.key.width = unit(1, "cm"),
+    legend.position = "bottom",
+    legend.text = element_text(angle = 45, hjust = 1),
+    legend.title = element_text(vjust = 1)
+  ) +
+  labs(x = "Time", y = "Cumulative Biosynthesis", color = "Growth Rate") +
+  guides(fill = guide_colourbar(title.position = "left"))
+p_biomass_dynamics_mono
+
 ```
+
+Polyploidy:
+
+```{r}
+polyploidy <- read_csv(
+  "cache/bacteria_simulation_results_norm_adder_polyploidy.csv"
+) |>
+  mutate(sim_id = as.factor(sim_id)) |>
+  mutate(ploidy = "Polyploid") |>
+  group_by(sim_id) |>
+  # calculate cumulative biosynthesis for biomass and dna
+  mutate(
+    biomass_increase = biomass - lag(biomass, default = first(biomass)),
+    increment = pmax(biomass - lag(biomass, default = first(biomass)), 0),
+    dna_increase = dna - lag(dna, default = first(dna)),
+    cbiomass = cumsum(biomass_increase),
+    cdna = cumsum(dna_increase),
+    ccbiomass = cumsum(cbiomass),
+    ccdna = cumsum(cdna),
+    n = row_number()
+  ) |>
+  ungroup() |>
+  filter(growth_rate > 0) |> # ignore negative growth rates
+  filter(n <= 2000) |> # trim down the data
+  pivot_longer(
+    cols = c(cbiomass, cdna),
+    values_to = "cumulative_abundance",
+    names_to = "cumulative_component"
+  ) |>
+  mutate(
+    cumulative_component = recode(
+      cumulative_component,
+      "cbiomass" = "Lipid",
+      "cdna" = "DNA"
+    )
+  ) |>
+  group_by(cumulative_component, n) |>
+  mutate(
+    mean_biomass = mean(cumulative_abundance),
+    sd_biomass = sd(cumulative_abundance)
+  ) |>
+  ungroup()
+
+p_biomass_dynamics <- polyploidy |>
+  mutate(sim_id = as.numeric(sim_id)) |>
+  filter(sim_id > 0, sim_id < 20) |>
+  ggplot(
+    aes(
+      x = n,
+      y = cumulative_abundance
+    )
+  ) +
+  geom_line(aes(group = sim_id, color = growth_rate), alpha = 0.25) +
+  geom_line(aes(y = mean_biomass), color = "black", linewidth = 1) +
+  geom_hline(yintercept = 0.8, linetype = "dashed", color = "black") +
+  coord_cartesian(expand = FALSE) +
+  facet_wrap(vars(cumulative_component)) +
+  scale_color_viridis_c(end = 0.9) +
+  theme_minimal() +
+  theme(
+    panel.border = element_rect(color = "black"),
+    panel.grid = element_blank(),
+    legend.key.height = unit(0.2, "cm"),
+    legend.key.width = unit(1, "cm"),
+    legend.position = "bottom",
+    legend.text = element_text(angle = 45, hjust = 1),
+    legend.title = element_text(vjust = 1)
+  ) +
+  labs(x = "Time", y = "Cumulative Biosynthesis", color = "Growth Rate") +
+  guides(fill = guide_colourbar(title.position = "left"))
+p_biomass_dynamics
+```
+
+
+
+combined plot
+
+```{r}
+joined_ploidy <- monoploidy |>
+  bind_rows(polyploidy)
+
+p_ploidy_joined <- joined_ploidy |>
+  mutate(sim_id = as.numeric(sim_id)) |>
+  filter(sim_id > 0, sim_id < 20) |>
+  ggplot(
+    aes(
+      x = n,
+      y = cumulative_abundance
+    )
+  ) +
+  geom_line(aes(group = sim_id, color = growth_rate), alpha = 0.25) +
+  geom_line(aes(y = mean_biomass), color = "black", linewidth = 1) +
+  geom_hline(yintercept = 0.8, linetype = "dashed", color = "black") +
+  coord_cartesian(expand = FALSE) +
+  scale_y_continuous(labels = scales::label_number(accuracy = 0.1)) +
+  facet_grid(ploidy ~ cumulative_component, scales = "free_y") +
+  scale_color_viridis_c(end = 0.9) +
+  theme_minimal() +
+  theme(
+    panel.border = element_rect(color = "black"),
+    panel.grid = element_blank(),
+    legend.key.height = unit(0.2, "cm"),
+    legend.key.width = unit(1, "cm"),
+    legend.position = "bottom",
+    legend.text = element_text(angle = 45, hjust = 1),
+    legend.title = element_text(vjust = 1),
+    plot.margin = unit(c(1, 1, 1, 1), "cm")
+  ) +
+  labs(
+    x = latex2exp::TeX("Time (Arbitrary Units, t)"),
+    y = "Biomass Equivalents",
+    color = latex2exp::TeX("Growth Rate $(t^{-1})$")
+  ) +
+  guides(fill = guide_colourbar(title.position = "left"))
+p_ploidy_joined
+
+ggsave(
+  filename = "fig_output/ploidy_joined_plot.pdf",
+  plot = p_ploidy_joined,
+  height = 6,
+  width = 6
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+# Deprecated code below, for reference
+
 
 ```{r}
 
@@ -238,37 +407,37 @@ p_norm
 
 ```{r}
 
-# plot normal distribution with xbar = 0.2 and sigma = 0.05
-x_norm <- tibble(
-  x = rnorm(10000, mean = 0.2, sd = 0.05)
-)
+# # plot normal distribution with xbar = 0.2 and sigma = 0.05
+# x_norm <- tibble(
+#   x = rnorm(10000, mean = 0.2, sd = 0.05)
+# )
 
-p_x_norm <- x_norm |>
-  ggplot() +
-  aes(x = x) +
-  ggdist::stat_halfeye(
-    color = "black",
-    fill = "lightblue"
-  ) +
-  annotate(
-    geom = "text",
-    label = "µ = 0.2\nσ = 0.05",
-    x = 0.3,
-    y = 0.5,
-    size = 5
-  ) +
-  theme_minimal() +
-  labs(
-    x = "",
-    y = "",
-  ) +
-  theme(
-    panel.grid = element_blank(),
-    axis.text.y = element_blank(),
-    panel.border = element_rect(color = "black")
-  )
+# p_x_norm <- x_norm |>
+#   ggplot() +
+#   aes(x = x) +
+#   ggdist::stat_halfeye(
+#     color = "black",
+#     fill = "lightblue"
+#   ) +
+#   annotate(
+#     geom = "text",
+#     label = "µ = 0.2\nσ = 0.05",
+#     x = 0.3,
+#     y = 0.5,
+#     size = 5
+#   ) +
+#   theme_minimal() +
+#   labs(
+#     x = "",
+#     y = "",
+#   ) +
+#   theme(
+#     panel.grid = element_blank(),
+#     axis.text.y = element_blank(),
+#     panel.border = element_rect(color = "black")
+#   )
 
-p_x_norm
+# p_x_norm
 ```
 
 # now for the gamma distribution
@@ -431,6 +600,7 @@ endpoint_df2_norm <- tibble(
 )
 
 p2_norm <- df2_norm |>
+  arrange(sim_id) |>
   ggplot(
     aes(
       x = n,
@@ -482,4 +652,11 @@ p2_norm <- df2_norm |>
     legend.position = "bottom"
   )
 p2_norm
+
+ggsave(
+  filename = "fig_output/growth_modeling_normalized.pdf",
+  plot = p2_norm,
+  width = 8,
+  height = 5
+)
 ```
