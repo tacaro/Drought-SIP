@@ -9,7 +9,8 @@ editor_options:
 
 ```{r}
 library(tidyverse)
-
+library(ggbiplot)
+library(gt)
 ```
 
 ## Load Data
@@ -55,12 +56,522 @@ gcms <- readxl::read_excel(
     )
   ) |>
   select(sample_id, site, condition, dt, rep, everything()) |>
-  rename(compound = `BinBase name`)
+  rename(compound = `BinBase name`) |>
+  # filter out unidentified compounds (represented by integers)
+  filter(!str_detect(compound, "^-?\\d+$")) |>
+  filter(!sample_id %in% c("BB id", "Pool 1", "Pool 2", "Pool 3", "Pool 4"))
+
+gcms |> glimpse()
 ```
 
 ```{r}
-gcms |> pull(compound) |> unique() |> sort() |> view()
+# inspect all compounds
+gcms |> pull(compound) |> unique() |> sort()
 ```
+
+Tile plot
+
+```{r}
+gcms |>
+  ggplot(
+    aes(
+      x = sample_id,
+      y = compound,
+      fill = peak_height
+    )
+  ) +
+  geom_tile() +
+  scale_fill_viridis_c(trans = "log10") +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1)
+  )
+```
+
+Convert into matrix for NMDS
+
+```{r}
+gcms_nmds <- gcms |>
+  select(
+    sample_id,
+    compound,
+    peak_height,
+    site,
+    condition,
+    dt,
+    rep
+  ) |>
+  mutate_at(vars(site, condition, dt, rep), as.factor) |>
+  filter(
+    !is.na(compound),
+    !is.na(site),
+    !is.na(condition)
+  ) |>
+  pivot_wider(
+    names_from = sample_id,
+    values_from = peak_height
+  )
+
+gcms.wide <- gcms |>
+  select(
+    sample_id,
+    site,
+    condition,
+    dt,
+    rep,
+    compound,
+    peak_height
+  ) |>
+  filter(!is.na(compound)) |>
+  pivot_wider(
+    id_cols = c(sample_id, site, condition, dt, rep),
+    names_from = compound,
+    values_from = peak_height
+  )
+
+gcms.pca <- prcomp(
+  gcms.wide |>
+    # extract the numeric columns for PCA
+    select(-c(sample_id, site, condition, dt, rep)) |>
+    # missing values are replaced with 0
+    mutate(across(everything(), ~ replace_na(.x, 0)))
+)
+
+plot(gcms.pca)
+```
+
+```{r}
+screeplot(gcms.pca, type = "line")
+
+p1 <- ggbiplot(
+  gcms.pca,
+  groups = gcms.wide$condition,
+  var.axes = FALSE
+) +
+  theme_bw()
+
+p2 <- ggbiplot(
+  gcms.pca,
+  groups = gcms.wide$site,
+  shape = gcms.wide$condition,
+  var.axes = FALSE
+) +
+  scale_color_brewer(palette = "Set1") +
+  theme_bw()
+
+cowplot::plot_grid(p1, p2, ncol = 2)
+```
+
+# Volcano plotting
+
+
+```{r}
+gcms_volcano <- gcms |>
+  filter(dt == "0hr") |>
+  group_by(compound) |>
+  dplyr::summarize(
+    mean_control = mean(peak_height[condition == "Control"], na.rm = TRUE),
+    mean_drought = mean(peak_height[condition == "Drought"], na.rm = TRUE),
+    # T-test p value
+    p_value = t.test(
+      peak_height[condition == "Control"],
+      peak_height[condition == "Drought"]
+    )$p.value,
+    .groups = "drop"
+  ) |>
+  # calculate log2 fold change and -log10 pvalue here
+  mutate(
+    log2_fc = log2(mean_drought / mean_control),
+    neg_log10_p = -log10(p_value),
+    # is it significant?
+    significant = case_when(
+      abs(log2_fc) > 1 & p_value < 0.05 ~ "Significant",
+      TRUE ~ "Not Significant"
+    )
+  )
+
+# Create volcano plot
+gcms_volcano |>
+  ggplot(
+    aes(
+      x = log2_fc,
+      y = neg_log10_p,
+      fill = significant
+    )
+  ) +
+  geom_point(shape = 21, alpha = 0.5) +
+  scale_fill_manual(
+    values = c("Not significant" = "gray", "Significant" = "red")
+  ) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  labs(
+    x = "Log2 Fold Change",
+    y = "-Log10 P-Value",
+    title = "GC-MS Data",
+    fill = ""
+  ) +
+  theme_minimal() +
+  theme(legend.position = "None", plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r}
+sig_metabolites <- gcms_volcano |>
+  filter(significant == "Significant") |>
+  arrange(p_value, log2_fc) |>
+  mutate(source = "GCMS")
+
+sig_metabolites |>
+  select(compound, p_value, log2_fc) |>
+  gt() |>
+  data_color(
+    columns = c(log2_fc),
+    palette = "Blues"
+  ) |>
+  data_color(columns = c(p_value), palette = "Reds", reverse = TRUE) |>
+  fmt_scientific()
+```
+
+export significant metabolite dataframe
+
+```{r}
+saveRDS(sig_metabolites, file = "cache/gcms_significant_metabolites.rds")
+```
+
+# Load in LCMS datasets and combine:
+
+Significant metabolites from LCMS
+```{r}
+lcms_sig <- read_rds("cache/lcms_significant_metabolites.rds") |>
+  mutate(source = "LCMS")
+
+overlapping <- intersect(lcms_sig$compound, sig_metabolites$compound)
+
+metab_sig_combined <- lcms_sig |>
+  bind_rows(sig_metabolites) |>
+  mutate(
+    compound = case_when(
+      compound %in% overlapping ~ str_c(compound, " (", source, ")"),
+      TRUE ~ compound
+    )
+  )
+
+metab_sig_combined |> arrange(compound)
+```
+
+All metabolites from both datasets
+
+
+```{r}
+lcms_volcano <- read_rds("cache/lcms_volcano.rds") |> mutate(source = "LCMS")
+
+overlapping_all <- intersect(lcms_volcano$compound, gcms_volcano$compound)
+
+metab_combined <- lcms_volcano |>
+  bind_rows(gcms_volcano |> mutate(source = "GCMS")) |>
+  mutate(
+    compound = case_when(
+      compound %in% overlapping_all ~ str_c(compound, " (", source, ")"),
+      TRUE ~ compound
+    )
+  ) |>
+  arrange(compound)
+
+p_metab_combined <- metab_combined |>
+  ggplot(
+    aes(
+      x = log2_fc,
+      y = neg_log10_p,
+      fill = significant,
+      label = compound
+    )
+  ) +
+  geom_point(alpha = 0.5, shape = 21) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  coord_cartesian(xlim = c(-3, 7), ylim = c(0, 8.2)) +
+  scale_fill_manual(
+    values = c("Not significant" = "gray", "Significant" = "red")
+  ) +
+  labs(
+    x = "Log2 Fold Change",
+    y = "-Log10 P-Value",
+    fill = ""
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    legend.position = "bottom",
+    aspect.ratio = 1,
+    plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")
+  )
+p_metab_combined
+
+```
+
+
+```{r}
+metab_combined |>
+  writexl::write_xlsx(path = "data_output/metab_combined_volcano.xlsx")
+
+meta_annot <- readxl::read_excel(
+  "data_output/metab_combined_volcano_annot.xlsx"
+)
+```
+
+
+```{r}
+p_osmo_sig <- meta_annot |>
+  filter(!is.na(annotation)) |>
+  ggplot(
+    aes(
+      x = log2_fc,
+      y = neg_log10_p,
+      fill = annotation,
+      label = compound
+    )
+  ) +
+  geom_point(alpha = 0.5, shape = 21) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  scale_fill_manual(values = c("orange", "blue")) +
+  coord_cartesian(xlim = c(-3, 7), ylim = c(0, 8.2)) +
+  ggrepel::geom_text_repel(
+    data = function(df) {
+      df |>
+        filter(
+          annotation == "osmo",
+          neg_log10_p > -log10(0.05) & abs(log2_fc) > 1
+        )
+    },
+    color = "blue",
+    size = 3,
+    force = 0.5,
+    nudge_y = 0.5,
+    nudge_x = 0.5,
+    segment.color = "black"
+  ) +
+  labs(
+    x = "Log2 Fold Change",
+    y = "-Log10 P-Value",
+    fill = ""
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    legend.position = "bottom",
+    aspect.ratio = 1,
+    plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")
+  )
+p_osmo_sig
+
+p_depol_sig <- meta_annot |>
+  filter(!is.na(annotation)) |>
+  ggplot(
+    aes(
+      x = log2_fc,
+      y = neg_log10_p,
+      fill = annotation,
+      label = compound
+    )
+  ) +
+  geom_point(alpha = 0.5, shape = 21) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  scale_fill_manual(values = c("orange", "blue")) +
+  coord_cartesian(xlim = c(-3, 7), ylim = c(0, 8.2)) +
+  ggrepel::geom_text_repel(
+    data = function(df) {
+      df |>
+        filter(
+          annotation == "depol",
+          neg_log10_p > -log10(0.05) & abs(log2_fc) > 1
+        )
+    },
+    color = "black",
+    size = 3,
+    force = 0.5,
+    nudge_y = 1,
+    nudge_x = 1,
+    box.padding = 1,
+    segment.color = "black"
+  ) +
+  labs(
+    x = "Log2 Fold Change",
+    y = "-Log10 P-Value",
+    fill = ""
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    legend.position = "bottom",
+    aspect.ratio = 1,
+    plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")
+  )
+p_depol_sig
+```
+
+
+```{r}
+p_combined <- cowplot::plot_grid(
+  p_metab_combined,
+  p_osmo_sig,
+  p_depol_sig,
+  ncol = 3
+)
+cowplot::save_plot(
+  plot = p_combined,
+  filename = "fig_output/metabolomics_combined_volcano.pdf",
+  base_height = 4,
+  base_width = 12
+)
+```
+
+# Analyze time series data
+
+
+```{r}
+lcms <- read_rds("cache/lcms_full_data.rds")
+```
+
+
+```{r}
+annotated_metabolites <- meta_annot |>
+  select(compound, annotation) |>
+  filter(!is.na(annotation)) |>
+  mutate(
+    compound = case_when(
+      str_detect(compound, "\\(LCMS\\)$") ~ str_remove(
+        compound,
+        " \\(LCMS\\)$"
+      ),
+      str_detect(compound, "\\(GCMS\\)$") ~ str_remove(
+        compound,
+        " \\(GCMS\\)$"
+      ),
+      TRUE ~ compound
+    )
+  )
+
+lcms_dt <- annotated_metabolites |>
+  left_join(lcms |> rename(compound = metabolite_name), by = "compound")
+
+gcms_dt <- gcms |>
+  left_join(annotated_metabolites, by = "compound")
+```
+
+
+```{r}
+# define a function for lots of plotting
+tidyplot_metabolite_lcms <- function(compound_choice) {
+  df <- lcms_dt |>
+    filter(
+      !is.na(peak_height),
+      !is.na(dt),
+      !is.na(site),
+      compound == compound_choice
+    )
+
+  if (nrow(df) == 0) {
+    return(invisible(NULL))
+  }
+
+  if (!any(is.finite(df$peak_height))) {
+    return(invisible(NULL))
+  }
+
+  df <- df |>
+    group_by(site) |>
+    mutate(site_max = max(peak_height, na.rm = TRUE)) |>
+    ungroup() |>
+    filter(is.finite(site_max) & site_max > 0) |>
+    group_by(site) |>
+    mutate(normalized = peak_height / site_max) |>
+    ungroup()
+
+  if (nrow(df) == 0) {
+    return(invisible(NULL))
+  }
+
+  df |>
+    tidyplot(x = dt, y = normalized, color = condition) |>
+    add_mean_bar(alpha = 0.4) |>
+    add_sem_errorbar() |>
+    add(labs(
+      x = "Time after rewetting",
+      y = "Normalized Peak Height",
+      caption = compound_choice
+    )) |>
+    add(scale_y_continuous(labels = scales::label_percent(), expand = FALSE)) |>
+    adjust_size(height = 60, width = 60) |>
+    split_plot(by = site) |>
+    save_plot(
+      filename = paste0(
+        "fig_output/metabolite_plots/",
+        compound_choice,
+        "_lcms.png"
+      )
+    )
+}
+
+tidyplot_metabolite_gcms <- function(compound_choice) {
+  df <- gcms_dt |>
+    filter(
+      !is.na(peak_height),
+      !is.na(dt),
+      !is.na(site),
+      compound == compound_choice
+    )
+
+  if (nrow(df) == 0) {
+    return(invisible(NULL))
+  }
+
+  if (!any(is.finite(df$peak_height))) {
+    return(invisible(NULL))
+  }
+
+  df <- df |>
+    group_by(site) |>
+    mutate(site_max = max(peak_height, na.rm = TRUE)) |>
+    ungroup() |>
+    filter(is.finite(site_max) & site_max > 0) |>
+    group_by(site) |>
+    mutate(normalized = peak_height / site_max) |>
+    ungroup()
+
+  if (nrow(df) == 0) {
+    return(invisible(NULL))
+  }
+
+  df |>
+    tidyplot(x = dt, y = normalized, color = condition) |>
+    add_mean_bar(alpha = 0.4) |>
+    add_sem_errorbar() |>
+    add(labs(
+      x = "Time after rewetting",
+      y = "Normalized Peak Height",
+      caption = compound_choice
+    )) |>
+    add(scale_y_continuous(labels = scales::label_percent(), expand = FALSE)) |>
+    adjust_size(height = 60, width = 60) |>
+    split_plot(by = site) |>
+    save_plot(
+      filename = paste0(
+        "fig_output/metabolite_plots/",
+        compound_choice,
+        "_gcms.png"
+      )
+    )
+}
+
+for (compound in annotated_metabolites$compound) {
+  tidyplot_metabolite_gcms(compound)
+  tidyplot_metabolite_lcms(compound)
+}
+```
+
 
 ```{r}
 

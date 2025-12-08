@@ -252,42 +252,94 @@ cowplot::plot_grid(p1, p2, ncol = 2)
 biplot tutorial
 
 ```{r}
-data(crime)
+# data(crime)
 
-crime |> knitr::kable()
+# crime |> knitr::kable()
 
-crime.pca <-
-  crime |>
-  dplyr::select(where(is.numeric)) |>
-  prcomp(scale. = TRUE)
+# crime.pca <-
+#   crime |>
+#   dplyr::select(where(is.numeric)) |>
+#   prcomp(scale. = TRUE)
 
-crime.pca
+# crime.pca
+
+# ggbiplot(
+#   crime.pca,
+#   labels = crime$st,
+#   circle = TRUE,
+#   varname.size = 4,
+#   varname.color = "red"
+# )
+
+# # The groups argument allows the observations to colored by group and to summarized by groups.
+# crime.pca <- reflect(crime.pca)
+
+# ggbiplot(
+#   crime.pca,
+#   groups = crime$region,
+#   labels = crime$st,
+#   labels.size = 4,
+#   var.factor = 1.4,
+#   ellipse = TRUE,
+#   ellipse.level = 0.5,
+#   ellipse.alpha = 0.1,
+#   circle = TRUE,
+#   varname.size = 4,
+#   varname.color = "black"
+# ) +
+#   labs(fill = "Region", color = "Region") +
+#   theme(legend.direction = 'horizontal', legend.position = 'top')
+```
+
+# Volcano plot
 
 
-ggbiplot(
-  crime.pca,
-  labels = crime$st,
-  circle = TRUE,
-  varname.size = 4,
-  varname.color = "red"
-)
+```{r}
+lcms_volcano <- lcms |>
+  rename(compound = metabolite_name) |>
+  group_by(compound) |>
+  dplyr::summarize(
+    mean_control = mean(peak_height[condition == "Control"], na.rm = TRUE),
+    mean_drought = mean(peak_height[condition == "Drought"], na.rm = TRUE),
+    # T-test p value
+    p_value = t.test(
+      peak_height[condition == "Control"],
+      peak_height[condition == "Drought"]
+    )$p.value,
+    .groups = "drop"
+  ) |>
+  # calculate log2 fold change and -log10 pvalue here
+  mutate(
+    log2_fc = log2(mean_drought / mean_control),
+    neg_log10_p = -log10(p_value),
+    # is it significant?
+    significant = case_when(
+      abs(log2_fc) > 1 & p_value < 0.05 ~ "Significant",
+      TRUE ~ "Not Significant"
+    )
+  )
 
-# The groups argument allows the observations to colored by group and to summarized by groups.
-crime.pca <- reflect(crime.pca)
-
-ggbiplot(
-  crime.pca,
-  groups = crime$region,
-  labels = crime$st,
-  labels.size = 4,
-  var.factor = 1.4,
-  ellipse = TRUE,
-  ellipse.level = 0.5,
-  ellipse.alpha = 0.1,
-  circle = TRUE,
-  varname.size = 4,
-  varname.color = "black"
-) +
-  labs(fill = "Region", color = "Region") +
-  theme(legend.direction = 'horizontal', legend.position = 'top')
+# Create volcano plot
+lcms_volcano |>
+  ggplot(
+    aes(
+      x = log2_fc,
+      y = neg_log10_p,
+      fill = significant
+    )
+  ) +
+  geom_point(shape = 21, alpha = 0.5) +
+  scale_fill_manual(
+    values = c("Not significant" = "gray", "Significant" = "red")
+  ) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  labs(
+    x = "Log2 Fold Change",
+    y = "-Log10 P-Value",
+    title = "LC-MS Data",
+    fill = ""
+  ) +
+  theme_minimal() +
+  theme(legend.position = "None", plot.title = element_text(hjust = 0.5))
 ```
