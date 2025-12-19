@@ -1,38 +1,48 @@
 ---
-title: "JCR_weather"
+title: "Weather data"
 format: html
 editor: visual
 editor_options: 
   chunk_output_type: console
 ---
 
-## Setup
-
+# JCR weather
 ```{r}
 library(tidyverse)
 ```
 
 ```{r}
-jcr_weather <- read_csv("data/JCR/Jalama Canyon Ranch Weather Station Data_10022024.csv")
+jcr_weather <- read_csv(
+  "data/Weather Data/Jalama Canyon Ranch Weather Station Data_10022024.csv"
+)
 
 # check col types
 sapply(jcr_weather, class)
 ```
 
 ```{r}
-p_jcr_precip <- jcr_weather |> 
+p_jcr_precip <- jcr_weather |>
   pivot_longer(
     cols = c(dayRain_c, monthRain_c, yearRain_c),
     names_to = "type",
     values_to = "rain_c"
-  ) |> 
+  ) |>
   mutate(
-    type = case_when(type == "dayRain_c" ~ "Daily Precipitation",
-                     type == "monthRain_c" ~ "Monthly Precipitation",
-                     type == "yearRain_c" ~ "Annual Precipitation"),
-    type = factor(type, levels = c("Daily Precipitation", "Monthly Precipitation", "Annual Precipitation"))
-  ) |> 
-  
+    type = case_when(
+      type == "dayRain_c" ~ "Daily Precipitation",
+      type == "monthRain_c" ~ "Monthly Precipitation",
+      type == "yearRain_c" ~ "Annual Precipitation"
+    ),
+    type = factor(
+      type,
+      levels = c(
+        "Daily Precipitation",
+        "Monthly Precipitation",
+        "Annual Precipitation"
+      )
+    )
+  ) |>
+
   ggplot(
     aes(
       x = utcdatetime,
@@ -64,19 +74,28 @@ p_jcr_precip
 ```
 
 ```{r}
-jcr_weather |> 
+jcr_weather |>
   pivot_longer(
     cols = c(dayRain_c, monthRain_c, yearRain_c),
     names_to = "type",
     values_to = "rain_c"
-  ) |> 
+  ) |>
   mutate(
-    type = case_when(type == "dayRain_c" ~ "Daily Precipitation",
-                     type == "monthRain_c" ~ "Monthly Precipitation",
-                     type == "yearRain_c" ~ "Annual Precipitation"),
-    type = factor(type, levels = c("Daily Precipitation", "Monthly Precipitation", "Annual Precipitation"))
-  ) |> 
-  filter(type == "Daily Precipitation") |> 
+    type = case_when(
+      type == "dayRain_c" ~ "Daily Precipitation",
+      type == "monthRain_c" ~ "Monthly Precipitation",
+      type == "yearRain_c" ~ "Annual Precipitation"
+    ),
+    type = factor(
+      type,
+      levels = c(
+        "Daily Precipitation",
+        "Monthly Precipitation",
+        "Annual Precipitation"
+      )
+    )
+  ) |>
+  filter(type == "Daily Precipitation") |>
   ggplot(
     aes(
       x = utcdatetime,
@@ -99,7 +118,7 @@ jcr_weather |>
 ```
 
 ```{r}
-jcr_weather |> 
+jcr_weather |>
   ggplot(
     aes(
       x = utcdatetime,
@@ -116,5 +135,37 @@ jcr_weather |>
   theme_bw() +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+# LOM weather
+
+
+```{r}
+lom_weather <- read_csv(
+  "data/Weather Data/HICKS_CYN.csv",
+  skip = 3
+) |>
+  janitor::clean_names() |>
+  rename(
+    datetime = date_and_time,
+    precip = total
+  ) |>
+  mutate(datetime = lubridate::parse_date_time(datetime, "HMS mdy")) |>
+  mutate(total_precip = cumsum(precip), total_precip_mm = total_precip * 25.4)
+
+lom_weather |>
+  ggplot(
+    aes(
+      x = datetime,
+      y = total_precip_mm
+    )
+  ) +
+  geom_line() +
+  theme_minimal() +
+  labs(
+    x = "",
+    y = "Cumulative Precipitation (mm)",
+    title = "Loma Ridge (Hicks Canyon) Weather Station"
   )
 ```
