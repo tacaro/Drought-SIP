@@ -342,4 +342,34 @@ lcms_volcano |>
   ) +
   theme_minimal() +
   theme(legend.position = "None", plot.title = element_text(hjust = 0.5))
+
+lcms |> saveRDS("cache/lcms_dataset.rds")
+```
+
+
+```{r}
+sig_metabolites <- lcms_volcano |>
+  filter(significant == "Significant") |>
+  arrange(p_value, log2_fc)
+
+sig_metabolites |>
+  select(compound, p_value, log2_fc) |>
+  gt() |>
+  data_color(
+    columns = c(log2_fc),
+    palette = "Blues"
+  ) |>
+  data_color(columns = c(p_value), palette = "Reds", reverse = TRUE) |>
+  fmt_scientific()
+```
+
+export significant metabolite dataframe
+
+
+```{r}
+saveRDS(sig_metabolites, file = "cache/lcms_significant_metabolites.rds")
+
+saveRDS(lcms_volcano, file = "cache/lcms_volcano.rds")
+
+saveRDS(lcms, file = "cache/lcms_full_data.rds")
 ```
