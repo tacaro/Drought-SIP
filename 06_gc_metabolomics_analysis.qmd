@@ -11,9 +11,10 @@ editor_options:
 library(tidyverse)
 library(ggbiplot)
 library(gt)
+library(tidyplots)
 ```
 
-## Load Data
+# Load GCMS Data
 
 
 ```{r}
@@ -69,7 +70,7 @@ gcms |> glimpse()
 gcms |> pull(compound) |> unique() |> sort()
 ```
 
-Tile plot
+## Tile plot
 
 ```{r}
 gcms |>
@@ -87,7 +88,7 @@ gcms |>
   )
 ```
 
-Convert into matrix for NMDS
+## Convert into matrix for NMDS
 
 ```{r}
 gcms_nmds <- gcms |>
@@ -161,12 +162,11 @@ p2 <- ggbiplot(
 cowplot::plot_grid(p1, p2, ncol = 2)
 ```
 
-# Volcano plotting
+# GCMS Volcano plotting
 
 
 ```{r}
 gcms_volcano <- gcms |>
-  filter(dt == "0hr") |>
   group_by(compound) |>
   dplyr::summarize(
     mean_control = mean(peak_height[condition == "Control"], na.rm = TRUE),
@@ -175,7 +175,7 @@ gcms_volcano <- gcms |>
     p_value = t.test(
       peak_height[condition == "Control"],
       peak_height[condition == "Drought"]
-    )$p.value,
+    )$p.value, # pull the p-value
     .groups = "drop"
   ) |>
   # calculate log2 fold change and -log10 pvalue here
@@ -233,16 +233,20 @@ sig_metabolites |>
   fmt_scientific()
 ```
 
-export significant metabolite dataframe
+## export significant metabolite dataframe
 
 ```{r}
 saveRDS(sig_metabolites, file = "cache/gcms_significant_metabolites.rds")
 ```
 
-# Load in LCMS datasets and combine:
+# Load in LCMS datasets and combine with GCMS dataset
 
 Significant metabolites from LCMS
 ```{r}
+# lcms dataset
+lcms <- read_rds("cache/lcms_dataset.rds")
+
+# LCMS significant metabolites
 lcms_sig <- read_rds("cache/lcms_significant_metabolites.rds") |>
   mutate(source = "LCMS")
 
@@ -260,8 +264,7 @@ metab_sig_combined <- lcms_sig |>
 metab_sig_combined |> arrange(compound)
 ```
 
-All metabolites from both datasets
-
+# Examine metabolite patterns from both datasets
 
 ```{r}
 lcms_volcano <- read_rds("cache/lcms_volcano.rds") |> mutate(source = "LCMS")
@@ -307,19 +310,19 @@ p_metab_combined <- metab_combined |>
     plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")
   )
 p_metab_combined
-
 ```
-
 
 ```{r}
 metab_combined |>
   writexl::write_xlsx(path = "data_output/metab_combined_volcano.xlsx")
 
-meta_annot <- readxl::read_excel(
-  "data_output/metab_combined_volcano_annot.xlsx"
+metabolite_manual_annotations <- readxl::read_excel(
+  "data/metabolomics/metabolite_manual_annotations.xlsx"
 )
-```
 
+meta_annot <- metab_combined |>
+  left_join(metabolite_manual_annotations, by = "compound")
+```
 
 ```{r}
 p_osmo_sig <- meta_annot |>
@@ -345,11 +348,12 @@ p_osmo_sig <- meta_annot |>
           neg_log10_p > -log10(0.05) & abs(log2_fc) > 1
         )
     },
-    color = "blue",
+    color = "black",
     size = 3,
     force = 0.5,
-    nudge_y = 0.5,
-    nudge_x = 0.5,
+    nudge_y = 0.7,
+    nudge_x = 0.8,
+    box.padding = 0.5,
     segment.color = "black"
   ) +
   labs(
@@ -393,7 +397,7 @@ p_depol_sig <- meta_annot |>
     size = 3,
     force = 0.5,
     nudge_y = 1,
-    nudge_x = 1,
+    nudge_x = 0,
     box.padding = 1,
     segment.color = "black"
   ) +
@@ -412,7 +416,6 @@ p_depol_sig <- meta_annot |>
 p_depol_sig
 ```
 
-
 ```{r}
 p_combined <- cowplot::plot_grid(
   p_metab_combined,
@@ -420,6 +423,8 @@ p_combined <- cowplot::plot_grid(
   p_depol_sig,
   ncol = 3
 )
+p_combined
+
 cowplot::save_plot(
   plot = p_combined,
   filename = "fig_output/metabolomics_combined_volcano.pdf",
@@ -429,7 +434,6 @@ cowplot::save_plot(
 ```
 
 # Analyze time series data
-
 
 ```{r}
 lcms <- read_rds("cache/lcms_full_data.rds")
@@ -466,6 +470,12 @@ gcms_dt <- gcms |>
 # define a function for lots of plotting
 tidyplot_metabolite_lcms <- function(compound_choice) {
   df <- lcms_dt |>
+    mutate(
+      site = case_when(
+        str_detect(sample_id, "JCR") ~ "Cattle Pasture",
+        str_detect(sample_id, "LOM") ~ "Grassland",
+      )
+    ) |>
     filter(
       !is.na(peak_height),
       !is.na(dt),
@@ -505,6 +515,7 @@ tidyplot_metabolite_lcms <- function(compound_choice) {
     )) |>
     add(scale_y_continuous(labels = scales::label_percent(), expand = FALSE)) |>
     adjust_size(height = 60, width = 60) |>
+    remove_legend() |>
     split_plot(by = site) |>
     save_plot(
       filename = paste0(
@@ -517,6 +528,12 @@ tidyplot_metabolite_lcms <- function(compound_choice) {
 
 tidyplot_metabolite_gcms <- function(compound_choice) {
   df <- gcms_dt |>
+    mutate(
+      site = case_when(
+        str_detect(sample_id, "JCR") ~ "Cattle Pasture",
+        str_detect(sample_id, "LOM") ~ "Grassland",
+      )
+    ) |>
     filter(
       !is.na(peak_height),
       !is.na(dt),
@@ -556,6 +573,7 @@ tidyplot_metabolite_gcms <- function(compound_choice) {
     )) |>
     add(scale_y_continuous(labels = scales::label_percent(), expand = FALSE)) |>
     adjust_size(height = 60, width = 60) |>
+    remove_legend() |>
     split_plot(by = site) |>
     save_plot(
       filename = paste0(
@@ -566,13 +584,385 @@ tidyplot_metabolite_gcms <- function(compound_choice) {
     )
 }
 
-for (compound in annotated_metabolites$compound) {
-  tidyplot_metabolite_gcms(compound)
-  tidyplot_metabolite_lcms(compound)
-}
+# uncomment to re-render all bar plots
+# for (compound in annotated_metabolites$compound) {
+#   tidyplot_metabolite_gcms(compound)
+#   tidyplot_metabolite_lcms(compound)
+# }
 ```
 
 
 ```{r}
+combined_dt <- gcms_dt |>
+  mutate(type = "GCMS") |>
+  bind_rows(lcms_dt |> mutate(type = "LCMS")) |>
+  select(
+    -c(
+      PubChem,
+      KEGG,
+      identifier,
+      inchikey,
+      m_z,
+      rt,
+      esi_mode,
+      `mass spec`,
+      `quant mz`,
+      ret.index
+    )
+  ) |>
+  mutate(compound = glue::glue("{compound} ({type})")) |>
+  group_by(type, site, condition, compound, dt) |>
+  # take mean of replicates at each time point, for each compound, for each site, for each treatment, for each method:
+  dplyr::summarize(
+    mean_peak_height = mean(peak_height, na.rm = TRUE)
+  ) |>
+  ungroup() |>
+  filter(!is.na(site), !is.na(condition)) |>
+  pivot_wider(
+    names_from = dt,
+    values_from = mean_peak_height
+  ) |>
+  mutate(
+    percent_change_24hr = (`24hr` - `0hr`) / `0hr` * 100,
+    percent_change_72hr = (`72hr` - `0hr`) / `0hr` * 100,
+    fold_change_24hr = `24hr` / `0hr`,
+    fold_change_72hr = `72hr` / `0hr`
+  )
 
+combined_dt |> glimpse()
+
+combined_dt |>
+  select(
+    type,
+    site,
+    condition,
+    compound,
+    fold_change_24hr,
+    fold_change_72hr,
+    percent_change_24hr,
+    percent_change_72hr
+  ) |>
+  arrange(percent_change_72hr) |>
+  gt::gt() |>
+  gt::data_color(
+    columns = percent_change_72hr,
+    method = "numeric",
+    palette = "viridis"
+  ) |>
+  gt::fmt_number(decimals = 1)
+```
+
+## Analyze timeseries data with volcano plots
+
+```{r}
+lcms_volcano_dt <- lcms |>
+  group_by(metabolite_name) |>
+  # look only at 0hr vs 72hr data
+  filter(dt != "24hr") |>
+  dplyr::summarize(
+    # take average of replicate measurements
+    mean_0hr = mean(peak_height[dt == "0hr"], na.rm = TRUE),
+    mean_72hr = mean(peak_height[dt == "72hr"], na.rm = TRUE),
+    # T-test p value
+    p_value = t.test(
+      peak_height[dt == "0hr"],
+      peak_height[dt == "72hr"]
+    )$p.value, # pull the p-value
+    .groups = "drop"
+  ) |>
+  # calculate log2 fold change and -log10 pvalue here
+  mutate(
+    log2_fc = log2(mean_72hr / mean_0hr),
+    neg_log10_p = -log10(p_value),
+    # is it significant?
+    significant = case_when(
+      abs(log2_fc) > 1 & p_value < 0.05 ~ "Significant",
+      TRUE ~ "Not Significant"
+    )
+  )
+
+
+# Create volcano plot
+lcms_volcano_dt |>
+  ggplot(
+    aes(
+      x = log2_fc,
+      y = neg_log10_p,
+      fill = significant
+    )
+  ) +
+  geom_point(shape = 21, alpha = 0.5) +
+  scale_fill_manual(
+    values = c("Not significant" = "gray", "Significant" = "red")
+  ) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  labs(
+    x = "Log2 Fold Change",
+    y = "-Log10 P-Value",
+    title = "LC-MS Data: 0hr vs 72hr post-rewetting",
+    fill = ""
+  ) +
+  theme_minimal() +
+  theme(legend.position = "None", plot.title = element_text(hjust = 0.5))
+
+```
+
+## do the same with GCMS data
+
+
+```{r}
+gcms_volcano_dt <- gcms |>
+  group_by(site, compound) |>
+  # look only at 0hr vs 72hr data
+  filter(dt != "24hr") |>
+  dplyr::summarize(
+    # take average of replicate measurements
+    mean_0hr = mean(peak_height[dt == "0hr"], na.rm = TRUE),
+    mean_72hr = mean(peak_height[dt == "72hr"], na.rm = TRUE),
+    # T-test p value
+    p_value = t.test(
+      peak_height[dt == "0hr"],
+      peak_height[dt == "72hr"]
+    )$p.value, # pull the p-value
+    .groups = "drop"
+  ) |>
+  # calculate log2 fold change and -log10 pvalue here
+  mutate(
+    log2_fc = log2(mean_72hr / mean_0hr),
+    neg_log10_p = -log10(p_value),
+    # is it significant?
+    significant = case_when(
+      abs(log2_fc) > 1 & p_value < 0.05 ~ "Significant",
+      TRUE ~ "Not Significant"
+    )
+  )
+
+
+# Create volcano plot
+gcms_volcano_dt |>
+  ggplot(
+    aes(
+      x = log2_fc,
+      y = neg_log10_p,
+      fill = significant
+    )
+  ) +
+  geom_point(shape = 21, alpha = 0.5) +
+  scale_fill_manual(
+    values = c("Not significant" = "gray", "Significant" = "red")
+  ) +
+  ggrepel::geom_text_repel(
+    data = function(df) df |> filter(significant == "Significant"),
+    aes(label = compound),
+    color = "black"
+  ) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  facet_wrap(vars(site)) +
+  labs(
+    x = "Log2 Fold Change",
+    y = "-Log10 P-Value",
+    title = "GC-MS Data: 0hr vs 72hr post-rewetting",
+    fill = ""
+  ) +
+  theme_minimal() +
+  theme(legend.position = "None", plot.title = element_text(hjust = 0.5))
+```
+
+## combined
+
+```{r}
+gcms_volcano_dt |>
+  bind_rows(lcms_volcano_dt |> rename(compound = metabolite_name)) |>
+  ggplot(
+    aes(
+      x = log2_fc,
+      y = neg_log10_p,
+      fill = significant
+    )
+  ) +
+  geom_point(shape = 21, alpha = 0.5) +
+  scale_fill_manual(
+    values = c("Not significant" = "gray", "Significant" = "red")
+  ) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+  labs(
+    x = "Log2 Fold Change Following Rewetting",
+    y = "-Log10 P-Value",
+    title = "",
+    fill = ""
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "None",
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+
+## plot relative increase or decrease
+
+
+```{r}
+lcms_decrease <- lcms |>
+  rename(compound = metabolite_name) |>
+  filter(condition == "Drought") |>
+  left_join(metabolite_manual_annotations, by = "compound") |>
+  mutate(
+    annotation = case_when(annotation == "osmo" ~ "Osmolyte", TRUE ~ NA)
+  ) |>
+  filter(!is.na(site), !is.na(compound)) |>
+  group_by(site, compound) |>
+  mutate(
+    mean_0hr = mean(peak_height[dt == "0hr"], na.rm = TRUE),
+    mean_24hr = mean(peak_height[dt == "24hr"], na.rm = TRUE),
+    mean_72hr = mean(peak_height[dt == "72hr"], na.rm = TRUE),
+    rel_change_72hr = (mean_72hr - mean_0hr) / mean_0hr,
+    rel_change_24hr = (mean_24hr - mean_0hr) / mean_0hr
+  ) |>
+  ungroup() |>
+  group_by(site) |>
+  mutate(
+    compound = fct_reorder(compound, rel_change_72hr, .desc = TRUE)
+  )
+
+p_lcms_decrease_JCR <- lcms_decrease |>
+  filter(site == "JCR") |>
+  ggplot(
+    aes(
+      x = rel_change_72hr,
+      y = compound,
+      color = annotation
+    )
+  ) +
+  geom_text(
+    aes(
+      x = case_when(
+        rel_change_72hr < 0 ~ 0.1,
+        rel_change_72hr > 0 ~ -0.1
+      ),
+      label = compound,
+      hjust = case_when(
+        rel_change_72hr < 0 ~ 0,
+        rel_change_72hr > 0 ~ 1
+      )
+    ),
+    size = 1,
+  ) +
+  geom_segment(
+    aes(xend = 0, yend = compound),
+    linewidth = 0.5,
+    alpha = 0.5
+  ) +
+  geom_vline(xintercept = 0) +
+  geom_vline(xintercept = 1) +
+  geom_vline(xintercept = -1) +
+  geom_point(
+    size = 0.5
+  ) +
+  scale_x_continuous(labels = scales::label_percent()) +
+  scale_color_manual(values = c("#fc0362", "gray")) +
+  facet_wrap(vars(site)) +
+  coord_cartesian(xlim = c(-1, 1)) +
+  theme_minimal() +
+  labs(
+    x = "Relative Change",
+    y = ""
+  ) +
+  theme(
+    axis.text.y = element_blank(),
+    panel.grid = element_blank(),
+    legend.position = "bottom"
+  )
+p_lcms_decrease_JCR
+
+ggsave(
+  "fig_output/JCR_lcms_rel_change_72hr.pdf",
+  plot = p_lcms_decrease_JCR,
+  height = 11,
+  width = 8.5
+)
+```
+
+
+```{r}
+lcms_decrease <- lcms |>
+  rename(compound = metabolite_name) |>
+  filter(condition == "Drought", site == "LOM") |>
+  left_join(metabolite_manual_annotations, by = "compound") |>
+  mutate(
+    annotation = case_when(annotation == "osmo" ~ "Osmolyte", TRUE ~ NA)
+  ) |>
+  filter(!is.na(site), !is.na(compound)) |>
+  group_by(site, compound) |>
+  mutate(
+    mean_0hr = mean(peak_height[dt == "0hr"], na.rm = TRUE),
+    mean_24hr = mean(peak_height[dt == "24hr"], na.rm = TRUE),
+    mean_72hr = mean(peak_height[dt == "72hr"], na.rm = TRUE),
+    rel_change_72hr = (mean_72hr - mean_0hr) / mean_0hr,
+    rel_change_24hr = (mean_24hr - mean_0hr) / mean_0hr
+  ) |>
+  ungroup() |>
+  group_by(site) |>
+  mutate(
+    compound = fct_reorder(compound, rel_change_72hr, .desc = TRUE)
+  )
+
+p_lcms_decrease_LOM <- lcms_decrease |>
+  filter(site == "LOM") |>
+  ggplot(
+    aes(
+      x = rel_change_72hr,
+      y = compound,
+      color = annotation
+    )
+  ) +
+  geom_text(
+    aes(
+      x = case_when(
+        rel_change_72hr < 0 ~ 0.1,
+        rel_change_72hr > 0 ~ -0.1
+      ),
+      label = compound,
+      hjust = case_when(
+        rel_change_72hr < 0 ~ 0,
+        rel_change_72hr > 0 ~ 1
+      )
+    ),
+    size = 1,
+  ) +
+  geom_segment(
+    aes(xend = 0, yend = compound),
+    linewidth = 0.5,
+    alpha = 0.5
+  ) +
+  geom_vline(xintercept = 0) +
+  geom_vline(xintercept = 1) +
+  geom_vline(xintercept = -1) +
+  geom_point(
+    size = 0.5
+  ) +
+  scale_x_continuous(labels = scales::label_percent()) +
+  scale_color_manual(values = c("#fc0362", "gray")) +
+  facet_wrap(vars(site)) +
+  coord_cartesian(xlim = c(-1, 1)) +
+  theme_minimal() +
+  labs(
+    x = "Relative Change",
+    y = ""
+  ) +
+  theme(
+    axis.text.y = element_blank(),
+    panel.grid = element_blank(),
+    legend.position = "bottom"
+  )
+p_lcms_decrease_LOM
+
+ggsave(
+  "fig_output/LOM_lcms_rel_change_72hr.pdf",
+  plot = p_lcms_decrease_LOM,
+  height = 11,
+  width = 8.5
+)
 ```
