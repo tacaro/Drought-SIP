@@ -291,9 +291,10 @@ p_ch4_flux <- ch4_flux |>
     )
   ) +
   geom_col(aes(fill = condition)) +
-  scale_fill_manual(values = c("#ffac47", "#4e80c7")) +
+  scale_fill_manual(values = c("#FC9403", "#4E80C7")) +
   facet_grid(site ~ condition) +
-  pilot::theme_pilot() +
+  coord_cartesian(ylim = c(0, -42)) +
+  theme_minimal() +
   labs(
     x = "Time after rewetting (hrs)",
     y = latex2exp::TeX("$CH_4$ flux $(µg \\; (m^2 \\cdot hr)^{-1})$")
@@ -444,23 +445,16 @@ p_co2_flux <- co2_flux |>
     )
   ) |>
   filter(time_after_rain != 21) |>
-  #filter(time_after_rain != 6) |>
   ggplot(
     aes(
       x = time_after_rain,
       y = umol_m2_sec
     )
   ) +
-  #geom_line(color = "gray", linetype = "dotted") +
   geom_col(aes(fill = condition)) +
-  # geom_point(
-  #   aes(fill = umol_m2_sec),
-  #   shape = 21,
-  #   color = "black"
-  # ) +
   facet_grid(site ~ condition) +
-  scale_fill_manual(values = c("#ffac47", "#4e80c7")) +
-  pilot::theme_pilot() +
+  scale_fill_manual(values = c("#FC9403", "#4E80C7")) +
+  theme_minimal() +
   labs(
     x = "Time after rewetting (hrs)",
     y = latex2exp::TeX("$CO_2$ flux $(µmol \\; (m^2 \\cdot sec)^{-1})$")
@@ -478,6 +472,20 @@ p_co2_flux
 #   height = 4,
 #   width = 5,
 # )
+```
+
+# export cowplot
+
+```{r}
+p_combined_fluxes <- cowplot::plot_grid(p_co2_flux, p_ch4_flux, ncol = 2)
+p_combined_fluxes
+
+cowplot::save_plot(
+  filename = "fig_output/combined_co2_ch4_flux_barplot.pdf",
+  plot = p_combined_fluxes,
+  base_height = 4,
+  base_width = 8
+)
 ```
 
 ## Export cache
