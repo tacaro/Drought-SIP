@@ -1,0 +1,175 @@
+---
+title: "Abiotic CO2 experiment"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r}
+library(tidyverse)
+```
+
+
+# Read data
+```{r}
+co2 <- read_csv("data/AbioticCO2/AbioticSilicaExperiment_20250628.csv") |>
+  janitor::clean_names() |>
+  mutate(
+    datetime = lubridate::mdy_hms(time)
+  ) |>
+  select(datetime, everything()) |>
+  mutate(time_after_rewetting = time_elapsed_hrs - 0.853)
+```
+
+
+```{r}
+co2 |>
+  ggplot(
+    aes(
+      x = time_elapsed_hrs,
+      y = co2_ppm
+    )
+  ) +
+  geom_line() +
+  theme_minimal() +
+  labs(
+    x = "Time elapsed (hr)",
+    y = latex2exp::TeX("$CO_2$ (ppm)")
+  )
+```
+
+Let's try fitting a spline
+
+
+```{r}
+# fit a smooth spline
+spline_fit <- smooth.spline(co2$time_after_rewetting, co2$co2_ppm, spar = 0.3)
+
+# get fitted values
+fitted_values <- predict(spline_fit)
+
+fitted_co2 <- tibble(time = fitted_values$x, co2_pred = fitted_values$y)
+
+# predict the derivative
+derivative <- predict(spline_fit, deriv = 1)
+
+deriv <- tibble(time = derivative$x, rate = derivative$y)
+
+max_rate <- deriv |>
+  filter(rate == max(rate, na.rm = TRUE)) |>
+  mutate(
+    rate_rnd = round(rate, 2),
+    time_rnd = round(time, 2),
+    time_rnd_min = round(time * 60, 1),
+    text_label = glue::glue(
+      "Max Rate: \n{rate_rnd} at {time_rnd_min} min"
+    )
+  )
+
+max_conc <- co2 |>
+  filter(co2_ppm == max(co2_ppm, na.rm = TRUE)) |>
+  mutate(
+    co2_rnd = round(co2_ppm, 0),
+    time_rnd = round(time_after_rewetting, 1),
+    text_label = glue::glue(
+      "Max Concentration: \n{co2_rnd} ppm at {time_rnd} hours"
+    )
+  )
+
+p_deriv <- deriv |>
+  ggplot(
+    aes(x = time, y = rate)
+  ) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  geom_line() +
+  geom_segment(
+    data = max_rate,
+    aes(x = time, xend = time, y = rate, yend = 0),
+    color = "red"
+  ) +
+  # geom_segment(
+  #   data = max_rate,
+  #   aes(x = 0, xend = time, y = rate, yend = rate),
+  #   color = "red"
+  # ) +
+  geom_label(
+    data = max_rate,
+    aes(x = 7, y = rate - 100, label = text_label),
+    fill = "white",
+    label.r = unit(0, "lines"),
+    border.color = "black"
+  ) +
+  theme_minimal() +
+  labs(
+    x = "Time after rewetting (hr)",
+    y = latex2exp::TeX("$\\Delta$ $CO_2$ (ppm/hr)")
+  ) +
+  theme(
+    panel.grid.minor.y = element_blank(),
+    panel.grid.minor.x = element_blank()
+  )
+p_deriv
+
+p_co2 <- co2 |>
+  ggplot(
+    aes(
+      x = time_after_rewetting,
+      y = co2_ppm
+    )
+  ) +
+  geom_vline(xintercept = 0) +
+  geom_segment(
+    data = max_conc,
+    aes(x = 0, xend = time_after_rewetting, y = co2_ppm, yend = co2_ppm),
+    linetype = "dotted",
+    color = "red"
+  ) +
+  geom_segment(
+    data = max_conc,
+    aes(
+      x = time_after_rewetting,
+      xend = time_after_rewetting,
+      y = 0,
+      yend = co2_ppm
+    ),
+    linetype = "dotted",
+    color = "red"
+  ) +
+  geom_line() +
+  geom_line(data = fitted_co2, aes(x = time, y = co2_pred), color = "orange") +
+  geom_label(
+    data = max_conc,
+    aes(
+      y = 600,
+      x = 10,
+      label = text_label
+    ),
+    border.color = "black",
+    label.r = unit(0, "lines")
+  ) +
+  coord_cartesian(ylim = c(390, 650)) +
+  theme_minimal() +
+  labs(
+    x = "",
+    y = latex2exp::TeX("$CO_2$ (ppm)")
+  ) +
+  theme(
+    panel.grid.minor.y = element_blank(),
+    panel.grid.minor.x = element_blank()
+  )
+p_co2
+
+p_combined <- cowplot::plot_grid(p_co2, p_deriv, labels = c("A", "B"), ncol = 1)
+p_combined
+
+cowplot::save_plot(
+  filename = "fig_output/abiotic_co2_plot.pdf",
+  plot = p_combined,
+  base_height = 4,
+  base_width = 8
+)
+
+```
