@@ -390,11 +390,11 @@ p_growth
 ```
 
 ```{r}
-a <- tibble(
-  at2H = c((0.0001557357 * 100), 0.05, 0.1, 0.25, 0.5),
-  F2H = at2H / 100,
-  d2H_VSMOW = F2H_to_d2H_VSMOW(F2H = F2H, permil = TRUE)
-)
+# a <- tibble(
+#   at2H = c((0.0001557357 * 100), 0.05, 0.1, 0.25, 0.5),
+#   F2H = at2H / 100,
+#   d2H_VSMOW = F2H_to_d2H_VSMOW(F2H = F2H, permil = TRUE)
+# )
 ```
 
 # Vapor SIP data
@@ -515,11 +515,12 @@ p_vapor_growth <- vapor_growth_data |>
   scale_fill_viridis_c(
     begin = 1,
     end = 0,
-    trans = "log10"
+    trans = "log10",
+    option = "plasma",
+    labels = scales::label_math(10^.x, format = log10)
   ) +
-  #scale_fill_gradient(trans = "log10", low = "white", high = "darkblue") +
   facet_grid(site ~ drought, scale = "free_y") +
-  coord_cartesian(ylim = c(0, 0.003)) +
+  #coord_cartesian(ylim = c(0, 0.003)) +
   labs(
     x = "Time after rewetting (hr)",
     y = latex2exp::TeX("Growth Rate $(d^{-1})$"),
@@ -542,12 +543,12 @@ p_vapor_growth
 ```
 
 ```{r}
-# p_vapor_growth |>
-#   ggsave(
-#     filename = "fig_output/vapor_growth.pdf",
-#     height = 5,
-#     width = 6
-#   )
+p_vapor_growth |>
+  ggsave(
+    filename = "fig_output/growth_plot_combined.pdf",
+    height = 5,
+    width = 6
+  )
 ```
 
 # Cache
