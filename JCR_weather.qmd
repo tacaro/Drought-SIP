@@ -6,7 +6,8 @@ editor_options:
   chunk_output_type: console
 ---
 
-# JCR weather
+# JCR weather thru 2024
+
 ```{r}
 library(tidyverse)
 ```
@@ -138,10 +139,72 @@ jcr_weather |>
   )
 ```
 
-# LOM weather
-
+# JCR weather thru 2025
 
 ```{r}
+jcr_new <- read_csv(
+  "data/Weather Data/Jalama Canyon Ranch Rainfall 08042024 to 08072025.csv"
+) |>
+  janitor::clean_names() |>
+  rename(datetime = localizeddatetime_r_n) |>
+  mutate(
+    datetime = str_remove(datetime, "\\\\r\\\\n'$"),
+    datetime = lubridate::ymd_hms(datetime),
+    year = lubridate::year(datetime),
+    month = lubridate::month(datetime),
+    day = lubridate::day(datetime),
+    date = lubridate::date(datetime),
+    yearmonth = lubridate::floor_date(datetime, "month")
+  ) |>
+  select(datetime, date, yearmonth, month, day, everything()) |>
+  filter(datetime < "2025-04-20 00:00:00", datetime > "2024-10-01 00:00:00") |>
+  group_by(date) |>
+  summarise(
+    total_rain_per_day = max(day_rain_c, na.rm = TRUE)
+  ) |>
+  ungroup() |>
+  mutate(accumulated_rain = cumsum(total_rain_per_day))
+
+
+p_jcr_new <- jcr_new |>
+  ggplot(
+    aes(x = date, y = accumulated_rain)
+  ) +
+  geom_area(fill = "gray", alpha = 0.25) +
+  geom_line() +
+  geom_vline(
+    xintercept = lubridate::ymd_hms("2025-04-02 00:00:00"),
+    color = "blue",
+    linetype = "dashed"
+  ) +
+  scale_y_continuous(
+    breaks = c(0, 1, 2, 3, 4, 5, 6, 7, 8),
+    sec.axis = sec_axis(
+      transform = ~ . * 25.4,
+      name = "Accumulated Precipitation (mm)"
+    )
+  ) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  coord_cartesian(expand = FALSE) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "Accumulated Precipitation (in)",
+    title = "Jalama Canyon Ranch (Cattle Pasture)"
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    aspect.ratio = 1,
+    plot.title = element_text(hjust = 0.5)
+  )
+
+p_jcr_new
+
+```  
+
+# LOM weather
+  
+  ```{r}
 lom_weather <- read_csv(
   "data/Weather Data/HICKS_CYN.csv",
   skip = 3
@@ -154,18 +217,58 @@ lom_weather <- read_csv(
   mutate(datetime = lubridate::parse_date_time(datetime, "HMS mdy")) |>
   mutate(total_precip = cumsum(precip), total_precip_mm = total_precip * 25.4)
 
-lom_weather |>
+p_lom_weather <- lom_weather |>
   ggplot(
     aes(
       x = datetime,
-      y = total_precip_mm
+      y = total_precip_mm / 25.4
     )
   ) +
+  geom_area(fill = "gray", alpha = 0.25) +
   geom_line() +
-  theme_minimal() +
+  geom_vline(
+    xintercept = lubridate::ymd_hms("2025-04-16 00:00:00"),
+    color = "blue",
+    linetype = "dashed"
+  ) +
+  scale_y_continuous(
+    breaks = c(0, 1, 2, 3, 4, 5, 6, 7, 8),
+    sec.axis = sec_axis(
+      transform = ~ . * 25.4,
+      name = "Accumulated Precipitation (mm)"
+    )
+  ) +
+  coord_cartesian(expand = FALSE) +
+  theme_bw() +
   labs(
     x = "",
-    y = "Cumulative Precipitation (mm)",
-    title = "Loma Ridge (Hicks Canyon) Weather Station"
+    y = "Accumulated Precipitation (in)",
+    title = "Loma Ridge (Grassland)"
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    aspect.ratio = 1,
+    plot.title = element_text(hjust = 0.5)
   )
+
+p_lom_weather
+
+```
+
+# plot together
+
+```{r}
+p_combined <- cowplot::plot_grid(
+  p_jcr_new,
+  p_lom_weather,
+  labels = c("A", "B"),
+  ncol = 1
+)
+
+cowplot::save_plot(
+  filename = "fig_output/combined_weather_data_plots.pdf",
+  base_height = 8,
+  base_width = 4,
+  plot = p_combined
+)
 ```
