@@ -44,7 +44,7 @@ Let's try fitting a spline
 
 
 ```{r}
-# fit a smooth spline
+# fit a smooth spline, spar = 0.3 is the smoothing parameter b/w 0 and 1. higher = smoother.
 spline_fit <- smooth.spline(co2$time_after_rewetting, co2$co2_ppm, spar = 0.3)
 
 # get fitted values
