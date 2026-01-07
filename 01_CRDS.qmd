@@ -254,14 +254,19 @@ temp_K = 273 + 35 # temp placeholder
 ch4_flux <- model_params |>
   mutate(
     ppbv_per_sec = slope,
+    ppbv_per_sec_se = std.error,
     ppmv_per_min = ppbv_per_sec / 1000 * 60, # convert to ppm per min
+    ppmv_per_min_se = ppbv_per_sec_se / 1000 * 60,
     uL_per_L_per_min = ppmv_per_min,
+    uL_per_L_per_min_se = ppmv_per_min_se,
     ug_per_L_per_min = (uL_per_L_per_min * ch4_mw * P_atm) / (R * temp_K),
-    ug_m2_hr = (ug_per_L_per_min * vol_L * min_per_hr) / area_m2
+    ug_per_L_per_min_se = (uL_per_L_per_min_se * ch4_mw * P_atm) / (R * temp_K),
+    ug_m2_hr = (ug_per_L_per_min * vol_L * min_per_hr) / area_m2,
+    ug_m2_hr_se = (ug_per_L_per_min_se * vol_L * min_per_hr) / area_m2
   )
 ```
 
-Plot
+## Plot
 
 ```{r}
 p_ch4_flux <- ch4_flux |>
@@ -284,6 +289,12 @@ p_ch4_flux <- ch4_flux |>
     )
   ) |>
   filter(time_after_rain != 21) |>
+  group_by(site, condition, time_after_rain) |>
+  # average replicates if they exist
+  dplyr::summarise(
+    ug_m2_hr = mean(ug_m2_hr, na.rm = TRUE),
+  ) |>
+  ungroup() |>
   ggplot(
     aes(
       x = as.factor(time_after_rain),
@@ -474,7 +485,7 @@ p_co2_flux
 # )
 ```
 
-# export cowplot
+# export cowplot of combined fluxes
 
 ```{r}
 p_combined_fluxes <- cowplot::plot_grid(p_co2_flux, p_ch4_flux, ncol = 2)
@@ -488,7 +499,7 @@ cowplot::save_plot(
 )
 ```
 
-## Export cache
+# Export co2 cache
 
 ```{r}
 co2_flux |>
