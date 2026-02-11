@@ -1,7 +1,6 @@
 ---
 title: "01_CRDS"
 format: html
-editor: visual
 editor_options: 
   chunk_output_type: console
 ---
@@ -262,7 +261,9 @@ ch4_flux <- model_params |>
     ug_per_L_per_min = (uL_per_L_per_min * ch4_mw * P_atm) / (R * temp_K),
     ug_per_L_per_min_se = (uL_per_L_per_min_se * ch4_mw * P_atm) / (R * temp_K),
     ug_m2_hr = (ug_per_L_per_min * vol_L * min_per_hr) / area_m2,
-    ug_m2_hr_se = (ug_per_L_per_min_se * vol_L * min_per_hr) / area_m2
+    ug_m2_hr_se = (ug_per_L_per_min_se * vol_L * min_per_hr) / area_m2,
+    umol_m2_hr = (ug_m2_hr) * (1 / 16.043), # 16.043 ug/umol
+    umol_m2_sec = umol_m2_hr / 3600 # 3600 sec per hour
   )
 ```
 
@@ -323,6 +324,52 @@ p_ch4_flux
 #   height = 4,
 #   width = 5
 # )
+```
+
+## CH4 in same units as CO2
+
+```{r}
+p_ch4_flux2 <- ch4_flux |>
+  mutate(
+    site = case_when(
+      site == "JCR" ~ "Cattle Pasture",
+      site == "LOM" ~ "Grassland"
+    ),
+    condition = case_when(
+      condition == "ROS" ~ "Drought",
+      condition == "sky" ~ "No Drought"
+    ),
+    time_after_rain = case_when(
+      time_after_rain == 0 ~ "Pre",
+      TRUE ~ as.factor(time_after_rain)
+    ),
+    time_after_rain = factor(
+      time_after_rain,
+      levels = c("Pre", "1", "3", "6", "12", "24", "48")
+    )
+  ) |>
+  filter(time_after_rain != 21) |>
+  ungroup() |>
+  ggplot(
+    aes(
+      x = as.factor(time_after_rain),
+      y = ug_m2_hr
+    )
+  ) +
+  geom_col(aes(fill = condition)) +
+  scale_fill_manual(values = c("#FC9403", "#4E80C7")) +
+  facet_grid(site ~ condition) +
+  coord_cartesian(ylim = c(0, -42)) +
+  theme_minimal() +
+  labs(
+    x = "Time after rewetting (hrs)",
+    y = latex2exp::TeX("$CH_4$ flux $(µg \\; (m^2 \\cdot hr)^{-1})$")
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 0.5),
+    legend.position = "none"
+  )
+p_ch4_flux2
 ```
 
 # CO2
@@ -513,4 +560,117 @@ co2_flux |>
   saveRDS(
     file = "cache/co2_flux_umol_m2_sec.rds"
   )
+```
+
+
+# Compare fluxes
+
+ratio of CH4 oxidized to CO2 released. take absolute value of mols methane oxidized over absolute value of mols co2 released
+
+$$
+\frac{|CH_4|}{|CO_2|}
+$$
+
+```{r}
+flux_compare <- co2_flux |>
+  mutate(gas = "CO2") |>
+  bind_rows(ch4_flux |> mutate(gas = "CH4")) |>
+  select(sample_id, site, condition, time_after_rain, gas, umol_m2_sec) |>
+  pivot_wider(names_from = gas, values_from = umol_m2_sec) |>
+  mutate(ratio_ch4_to_c02 = abs(CH4) / abs(CO2))
+
+#flux_compare |> glimpse()
+
+p_flux_compare <- flux_compare |>
+  filter(!str_detect(sample_id, "PRE-1")) |>
+  mutate(
+    site = case_when(
+      site == "JCR" ~ "Cattle Pasture",
+      site == "LOM" ~ "Grassland"
+    ),
+    condition = case_when(
+      condition == "ROS" ~ "Drought",
+      condition == "sky" ~ "No Drought"
+    )
+  ) |>
+  ggplot(
+    aes(
+      x = time_after_rain,
+      y = ratio_ch4_to_c02
+    )
+  ) +
+  geom_smooth(
+    method = "loess",
+    span = 0.3,
+    color = "black",
+    alpha = 0.5,
+    se = FALSE,
+    linetype = "dotted"
+  ) +
+  geom_point(aes(fill = condition), shape = 21, size = 3) +
+  scale_y_continuous(labels = scales::label_number()) +
+  scale_fill_manual(values = c("#FC9403", "#4E80C7")) +
+  labs(
+    x = "Time after rewetting (hours)",
+    y = latex2exp::TeX("$\\frac{CH_{4_{ox}}}{CO_{2_{prod}}}$"),
+    fill = ""
+  ) +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    aspect.ratio = 1
+  )
+
+p_flux_compare
+
+ggsave(
+  filename = "fig_output/flux_compare.pdf",
+  plot = p_flux_compare,
+  height = 5,
+  width = 6
+)
+
+# range of ratios?
+flux_compare |> pull(ratio_ch4_to_c02) |> min(na.rm = TRUE)
+flux_compare |> pull(ratio_ch4_to_c02) |> max(na.rm = TRUE)
+flux_compare |> pull(ratio_ch4_to_c02) |> mean(na.rm = TRUE)
+
+# range of CO2 from CH4
+# where 50% of C goes to biomass
+# expressed in percent
+flux_compare |> pull(ratio_ch4_to_c02) |> min(na.rm = TRUE) * 0.5 * 100
+flux_compare |> pull(ratio_ch4_to_c02) |> max(na.rm = TRUE) * 0.5 * 100
+flux_compare |> pull(ratio_ch4_to_c02) |> mean(na.rm = TRUE) * 0.5 * 100
+
+# how many moles C assimilated into biomass?
+# units of umol per m2 per sec (umol_m2_sec)
+flux_compare |> pull(CH4) |> min(na.rm = TRUE) * 0.5
+flux_compare |> pull(CH4) |> max(na.rm = TRUE) * 0.5
+flux_compare |> pull(CH4) |> mean(na.rm = TRUE) |> abs() * 0.5
+
+umol_c_assim_from_ch4_per_m2_per_sec <- flux_compare |>
+  pull(CH4) |>
+  abs() |>
+  max(na.rm = TRUE) * # assume max under dry, aerated conditions
+  0.5
+umol_c_assim_from_ch4_per_m2_per_sec
+
+# convert to umol per m2 per day
+umol_c_assim_from_ch4_per_m2_per_day <- umol_c_assim_from_ch4_per_m2_per_sec *
+  86400
+
+umol_c_assim_from_ch4_per_m2_per_day
+
+# convert to umol per g per day
+# 1 m2 = 100 cm length * 100 cm width * 10 cm depth = 1E5 cm3
+# assume typical soil density of 1 g / cm3
+# = 1E5 g soil
+umol_c_assim_from_ch4_per_g_per_day <- umol_c_assim_from_ch4_per_m2_per_day *
+  (1 / 1E5)
+umol_c_assim_from_ch4_per_g_per_day
+
+# convert umol to pmol
+pmol_c_assim_from_ch4_per_g_per_day <- umol_c_assim_from_ch4_per_g_per_day * 1E6
+pmol_c_assim_from_ch4_per_g_per_day
+
 ```
