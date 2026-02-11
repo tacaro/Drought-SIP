@@ -542,13 +542,14 @@ p_vapor_growth <- vapor_growth_data |>
 p_vapor_growth
 ```
 
+### save plot
 ```{r}
-p_vapor_growth |>
-  ggsave(
-    filename = "fig_output/growth_plot_combined.pdf",
-    height = 5,
-    width = 6
-  )
+# p_vapor_growth |>
+#   ggsave(
+#     filename = "fig_output/growth_plot_combined.pdf",
+#     height = 5,
+#     width = 6
+#   )
 ```
 
 # Cache
@@ -572,3 +573,42 @@ saveRDS(
   file = "cache/lipid_sip_growth_data.rds"
 )
 ```
+
+# compare growth between vapor and liquid addition SIP
+
+
+```{r}
+vapor_growth_data |> glimpse()
+
+compare_growth <- vapor_growth_data |>
+  bind_rows(growth_data) |>
+  select(SIP_type, site, condition = drought, dt_hr, u_d) |>
+  pivot_wider(names_from = SIP_type, values_from = u_d) |>
+  # difference in growth rates
+  mutate(diff_u_d = `Liquid-SIP` - `Vapor-SIP`) |>
+  group_by(site, condition) |>
+  summarise(
+    liquid_mean = mean(`Liquid-SIP`),
+    vapor_mean = mean(`Vapor-SIP`)
+  ) |>
+  mutate(
+    factor = liquid_mean / vapor_mean
+  )
+compare_growth
+
+# What are ambient rates of soil microbial growth?
+compare_growth |> pull(vapor_mean) |> min() # min
+compare_growth |> pull(vapor_mean) |> mean() # mean
+compare_growth |> pull(vapor_mean) |> max() # max
+
+# corresponding generation times?
+log(2) / compare_growth |> pull(vapor_mean) |> min() # min
+log(2) / compare_growth |> pull(vapor_mean) |> mean() # mean
+log(2) / compare_growth |> pull(vapor_mean) |> max() # max
+
+# How much does liquid addition increase soil microbial growth rates?
+compare_growth |> pull(factor) |> min() # min
+compare_growth |> pull(factor) |> mean() # mean
+compare_growth |> pull(factor) |> max() # max
+```
+
