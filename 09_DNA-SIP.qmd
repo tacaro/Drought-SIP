@@ -454,6 +454,18 @@ how_much_faster <- compare_sips |>
   pull(ratio) |>
   mean()
 
+how_much_faster_min <- compare_sips |>
+  filter(dt_d != 0) |>
+  mutate(ratio = mu_d_dna / mu_d_lipid) |>
+  pull(ratio) |>
+  min()
+
+how_much_faster_max <- compare_sips |>
+  filter(dt_d != 0) |>
+  mutate(ratio = mu_d_dna / mu_d_lipid) |>
+  pull(ratio) |>
+  max()
+
 message(
   "DNA synthesis rates are approximately ",
   round(how_much_faster, 2),
