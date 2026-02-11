@@ -12,6 +12,7 @@ library(tidyverse)
 library(ggbiplot)
 library(gt)
 library(tidyplots)
+library(ggpmisc)
 ```
 
 # Load GCMS Data
@@ -255,7 +256,7 @@ overlapping <- intersect(lcms_sig$compound, sig_metabolites$compound)
 metab_sig_combined <- lcms_sig |>
   bind_rows(sig_metabolites) |>
   mutate(
-    compound = case_when(
+    compound_unique = case_when(
       compound %in% overlapping ~ str_c(compound, " (", source, ")"),
       TRUE ~ compound
     )
@@ -274,7 +275,7 @@ overlapping_all <- intersect(lcms_volcano$compound, gcms_volcano$compound)
 metab_combined <- lcms_volcano |>
   bind_rows(gcms_volcano |> mutate(source = "GCMS")) |>
   mutate(
-    compound = case_when(
+    compound_unique = case_when(
       compound %in% overlapping_all ~ str_c(compound, " (", source, ")"),
       TRUE ~ compound
     )
@@ -321,12 +322,16 @@ metabolite_manual_annotations <- readxl::read_excel(
 )
 
 meta_annot <- metab_combined |>
-  left_join(metabolite_manual_annotations, by = "compound")
+  left_join(metabolite_manual_annotations, by = "compound") |>
+  filter(compound_unique != "mannitol (GCMS)") # remove duplicate
 ```
 
 ```{r}
 p_osmo_sig <- meta_annot |>
-  filter(!is.na(annotation)) |>
+  # turn depol annotations back to na for this plot
+  mutate(
+    annotation = case_when(annotation == "depol" ~ NA, TRUE ~ annotation)
+  ) |>
   ggplot(
     aes(
       x = log2_fc,
@@ -335,27 +340,54 @@ p_osmo_sig <- meta_annot |>
       label = compound
     )
   ) +
-  geom_point(alpha = 0.5, shape = 21) +
   geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
   geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
-  scale_fill_manual(values = c("orange", "blue")) +
-  coord_cartesian(xlim = c(-3, 7), ylim = c(0, 8.2)) +
+  geom_point(
+    data = function(df) df |> filter(is.na(annotation)),
+    shape = 21,
+    alpha = 0.1
+  ) +
   ggrepel::geom_text_repel(
     data = function(df) {
       df |>
         filter(
           annotation == "osmo",
-          neg_log10_p > -log10(0.05) & abs(log2_fc) > 1
+          #neg_log10_p > -log10(0.05) & abs(log2_fc) > 1
         )
     },
-    color = "black",
+    color = "red",
     size = 3,
     force = 0.5,
-    nudge_y = 0.7,
-    nudge_x = 0.8,
-    box.padding = 0.5,
-    segment.color = "black"
+    #nudge_y = 3,
+    #nudge_x = 5,
+    box.padding = 0.3,
+    segment.color = "red",
+    min.segment.length = 0,
+    #segment.curvature = -1e-20,
+    segment.alpha = 1,
+    alpha = 1,
+    ylim = c(-2, Inf),
+    xlim = c(-Inf, Inf)
   ) +
+  # geom_text(
+  #   data = function(df) {
+  #     df |>
+  #       filter(
+  #         annotation == "osmo",
+  #         #neg_log10_p > -log10(0.05) & abs(log2_fc) > 1
+  #       )
+  #   },
+  #   color = "red",
+  #   hjust = 0,
+  #   position = position_nudge(x = 0.1, y = 0.1)
+  # ) +
+  geom_point(
+    data = function(df) df |> filter(annotation == "osmo"),
+    shape = 21
+  ) +
+  scale_fill_manual(values = c("red", "gray")) +
+  scale_alpha_manual(values = c(1, 0.2)) +
+  coord_cartesian(xlim = c(-3, 7), ylim = c(0, 8.2), clip = "off") +
   labs(
     x = "Log2 Fold Change",
     y = "-Log10 P-Value",
@@ -369,7 +401,9 @@ p_osmo_sig <- meta_annot |>
     plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")
   )
 p_osmo_sig
+```
 
+```{r}
 p_depol_sig <- meta_annot |>
   filter(!is.na(annotation)) |>
   ggplot(
@@ -420,16 +454,15 @@ p_depol_sig
 p_combined <- cowplot::plot_grid(
   p_metab_combined,
   p_osmo_sig,
-  p_depol_sig,
-  ncol = 3
+  ncol = 2
 )
 p_combined
 
 cowplot::save_plot(
   plot = p_combined,
   filename = "fig_output/metabolomics_combined_volcano.pdf",
-  base_height = 4,
-  base_width = 12
+  base_height = 7,
+  base_width = 14
 )
 ```
 
@@ -801,11 +834,14 @@ gcms_volcano_dt |>
   )
 ```
 
-## plot relative increase or decrease
 
+
+
+# calculate relative increase and decrease
 
 ```{r}
-lcms_decrease <- lcms |>
+
+lcms_change <- lcms |>
   rename(compound = metabolite_name) |>
   filter(condition == "Drought") |>
   left_join(metabolite_manual_annotations, by = "compound") |>
@@ -827,142 +863,326 @@ lcms_decrease <- lcms |>
     compound = fct_reorder(compound, rel_change_72hr, .desc = TRUE)
   )
 
-p_lcms_decrease_JCR <- lcms_decrease |>
-  filter(site == "JCR") |>
-  ggplot(
-    aes(
-      x = rel_change_72hr,
-      y = compound,
-      color = annotation
-    )
-  ) +
-  geom_text(
-    aes(
-      x = case_when(
-        rel_change_72hr < 0 ~ 0.1,
-        rel_change_72hr > 0 ~ -0.1
-      ),
-      label = compound,
-      hjust = case_when(
-        rel_change_72hr < 0 ~ 0,
-        rel_change_72hr > 0 ~ 1
-      )
-    ),
-    size = 1,
-  ) +
-  geom_segment(
-    aes(xend = 0, yend = compound),
-    linewidth = 0.5,
-    alpha = 0.5
-  ) +
-  geom_vline(xintercept = 0) +
-  geom_vline(xintercept = 1) +
-  geom_vline(xintercept = -1) +
-  geom_point(
-    size = 0.5
-  ) +
-  scale_x_continuous(labels = scales::label_percent()) +
-  scale_color_manual(values = c("#fc0362", "gray")) +
-  facet_wrap(vars(site)) +
-  coord_cartesian(xlim = c(-1, 1)) +
-  theme_minimal() +
-  labs(
-    x = "Relative Change",
-    y = ""
-  ) +
-  theme(
-    axis.text.y = element_blank(),
-    panel.grid = element_blank(),
-    legend.position = "bottom"
-  )
-p_lcms_decrease_JCR
+gcms_change <- gcms |>
+  select(sample_id, site, condition, dt, rep, compound, peak_height) |>
+  group_by(site, condition, dt, compound) |>
+  summarise(mean_peak_height = mean(peak_height, na.rm = TRUE)) |>
+  ungroup() |>
+  group_by(site, compound, condition) |>
+  mutate(
+    # identify the mean peak height at 0hr timepoint
+    mean_0hr = mean_peak_height[dt == "0hr"],
+    diff_from_t0 = mean_peak_height - mean_0hr,
+    rel_change = diff_from_t0 / mean_0hr
+  ) |>
+  mutate(instrument = "GCMS") |>
+  filter(!is.na(compound), !is.na(site), !is.na(condition))
 
-ggsave(
-  "fig_output/JCR_lcms_rel_change_72hr.pdf",
-  plot = p_lcms_decrease_JCR,
-  height = 11,
-  width = 8.5
+lcms_change <- lcms |>
+  select(
+    sample_id,
+    site,
+    condition,
+    dt,
+    rep,
+    compound = metabolite_name,
+    peak_height
+  ) |>
+  group_by(site, condition, dt, compound) |>
+  summarise(mean_peak_height = mean(peak_height, na.rm = TRUE)) |>
+  ungroup() |>
+  group_by(site, compound, condition) |>
+  mutate(
+    # identify the mean peak height at 0hr timepoint
+    mean_0hr = mean_peak_height[dt == "0hr"],
+    diff_from_t0 = mean_peak_height - mean_0hr,
+    rel_change = diff_from_t0 / mean_0hr
+  ) |>
+  mutate(instrument = "LCMS") |>
+  filter(!is.na(compound))
+
+osmolytes <- annotated_metabolites |>
+  filter(annotation == "osmo") |>
+  pull(compound)
+
+combined_change <- gcms_change |>
+  bind_rows(lcms_change) |>
+  mutate(sitecondition = paste(site, condition)) |>
+  mutate(osmolyte = compound %in% osmolytes) |>
+  group_by(site, condition, compound, dt) |>
+  # if there's a duplicated compound, add instrument info
+  mutate(
+    compound_unique = case_when(
+      n() > 1 ~ paste0(compound, " ", instrument),
+      TRUE ~ compound
+    )
+  ) |>
+  filter(dt == "72hr") |>
+  filter(compound_unique != "mannitol GCMS") |>
+  ungroup()
+```
+
+
+```{r}
+plot_relative_change <- function(sitecontrol_choice) {
+  combined_change |>
+    filter(sitecondition == sitecontrol_choice) |>
+    group_by(sitecondition) |>
+    mutate(
+      compound_unique = as.factor(compound_unique),
+      compound_unique = fct_reorder(compound_unique, rel_change, .desc = TRUE),
+      rel_change_sign = if_else(rel_change >= 0, "pos", "neg")
+    ) |>
+    ggplot(
+      aes(
+        x = rel_change,
+        y = compound_unique,
+        color = osmolyte,
+        shape = osmolyte,
+        size = osmolyte
+      )
+    ) +
+    geom_vline(xintercept = 0) +
+    geom_col(aes(fill = rel_change_sign), color = NA, alpha = 0.1, width = 2) +
+    geom_point() +
+    ggrepel::geom_text_repel(
+      data = function(df) df |> filter(osmolyte),
+      aes(label = compound),
+      size = 3,
+      nudge_x = 0.2,
+      nudge_y = 0.1,
+      segment.alpha = 0.2
+      #position = position_nudge(x = 0.1)
+    ) +
+    coord_cartesian(xlim = c(-1, 1)) +
+    facet_wrap(vars(sitecondition), scales = "free_y") +
+    scale_shape_manual(values = c(1, 16)) +
+    scale_color_manual(values = c("black", "red")) +
+    scale_fill_manual(values = c("#00438d", "#8d0000")) +
+    scale_size_manual(values = c(0.5, 2)) +
+    scale_x_continuous(labels = scales::label_percent()) +
+    theme_classic() +
+    labs(
+      x = "Relative Change\n0 to 72 hrs following rewetting",
+      y = ""
+    ) +
+    theme(
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      strip.background = element_blank(),
+      strip.text = element_text(face = "bold"),
+      axis.line.y = element_blank(),
+      legend.position = "none"
+    )
+}
+
+p1 <- plot_relative_change("JCR Control")
+p2 <- plot_relative_change("JCR Drought")
+p3 <- plot_relative_change("LOM Control")
+p4 <- plot_relative_change("LOM Drought")
+
+p1thru4 <- cowplot::plot_grid(p1, p2, p3, p4, ncol = 2)
+p1thru4
+
+cowplot::save_plot(
+  filename = "fig_output/metaB_rel_change.pdf",
+  plot = p1thru4,
+  base_height = 8,
+  base_width = 9
 )
 ```
 
 
 ```{r}
-lcms_decrease <- lcms |>
-  rename(compound = metabolite_name) |>
-  filter(condition == "Drought", site == "LOM") |>
-  left_join(metabolite_manual_annotations, by = "compound") |>
-  mutate(
-    annotation = case_when(annotation == "osmo" ~ "Osmolyte", TRUE ~ NA)
-  ) |>
-  filter(!is.na(site), !is.na(compound)) |>
-  group_by(site, compound) |>
-  mutate(
-    mean_0hr = mean(peak_height[dt == "0hr"], na.rm = TRUE),
-    mean_24hr = mean(peak_height[dt == "24hr"], na.rm = TRUE),
-    mean_72hr = mean(peak_height[dt == "72hr"], na.rm = TRUE),
-    rel_change_72hr = (mean_72hr - mean_0hr) / mean_0hr,
-    rel_change_24hr = (mean_24hr - mean_0hr) / mean_0hr
-  ) |>
-  ungroup() |>
-  group_by(site) |>
-  mutate(
-    compound = fct_reorder(compound, rel_change_72hr, .desc = TRUE)
-  )
-
-p_lcms_decrease_LOM <- lcms_decrease |>
-  filter(site == "LOM") |>
-  ggplot(
-    aes(
-      x = rel_change_72hr,
-      y = compound,
-      color = annotation
-    )
-  ) +
-  geom_text(
-    aes(
-      x = case_when(
-        rel_change_72hr < 0 ~ 0.1,
-        rel_change_72hr > 0 ~ -0.1
-      ),
-      label = compound,
-      hjust = case_when(
-        rel_change_72hr < 0 ~ 0,
-        rel_change_72hr > 0 ~ 1
-      )
-    ),
-    size = 1,
-  ) +
-  geom_segment(
-    aes(xend = 0, yend = compound),
-    linewidth = 0.5,
-    alpha = 0.5
-  ) +
+p5 <- combined_change |>
+  filter(osmolyte) |>
+  mutate(compound = fct_reorder(compound, rel_change, .desc = TRUE)) |>
+  ggplot(aes(
+    x = rel_change,
+    y = compound,
+    color = condition,
+    fill = condition
+  )) +
+  geom_col(position = position_dodge(width = 0.5), width = 0.3) +
   geom_vline(xintercept = 0) +
-  geom_vline(xintercept = 1) +
-  geom_vline(xintercept = -1) +
-  geom_point(
-    size = 0.5
-  ) +
-  scale_x_continuous(labels = scales::label_percent()) +
-  scale_color_manual(values = c("#fc0362", "gray")) +
   facet_wrap(vars(site)) +
-  coord_cartesian(xlim = c(-1, 1)) +
-  theme_minimal() +
+  scale_color_manual(values = c("#4E80C7", "#FC9403")) +
+  scale_fill_manual(values = c("#4E80C7", "#FC9403")) +
+  scale_x_continuous(labels = scales::label_percent()) +
+  theme_classic() +
   labs(
-    x = "Relative Change",
+    x = "Relative Change\n0 to 72 hrs following rewetting",
     y = ""
   ) +
   theme(
-    axis.text.y = element_blank(),
-    panel.grid = element_blank(),
-    legend.position = "bottom"
+    axis.ticks.y = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"),
+    axis.line.y = element_blank(),
+    legend.position = "inside",
+    legend.position.inside = c(0.9, 0.9),
+    legend.title = element_blank(),
+    legend.background = element_rect(color = "black")
   )
-p_lcms_decrease_LOM
+p5
 
 ggsave(
-  "fig_output/LOM_lcms_rel_change_72hr.pdf",
-  plot = p_lcms_decrease_LOM,
-  height = 11,
-  width = 8.5
+  filename = "fig_output/osmolyte_change.pdf",
+  plot = p5,
+  height = 4,
+  width = 8
 )
 ```
+
+# Calculate alpha diversity
+
+Shannon's:
+$$
+H = - \Sigma p_i * ln(p_i) \
+$$
+
+Simpson's
+$$
+D = \Sigma (p_i)^2
+$$
+
+Simpson's diversity index:
+$$
+1 - D
+$$
+```{r}
+shannon_diversity <- lcms |>
+  rename(compound = metabolite_name) |>
+  bind_rows(gcms) |>
+  select(site, condition, dt, rep, compound, peak_height) |>
+  group_by(site, condition, dt, rep) |>
+  mutate(
+    total_abundance = sum(peak_height, na.rm = TRUE),
+    proportion = peak_height / total_abundance
+  ) |>
+  filter(proportion > 0, !is.na(site)) |>
+  summarise(
+    shannon_diversity = -sum(proportion * log(proportion)), # H = -Sum(p*ln(p))
+    simpson_diversity = 1 - sum(proportion^2) # 1 - D where D = Sum(p_i)^2
+  ) |>
+  ungroup() |>
+  group_by(site, condition, dt) |>
+  summarize(
+    shannon_mean = mean(shannon_diversity),
+    shannon_se = sd(shannon_diversity) / sqrt(n()),
+    simpson_mean = mean(simpson_diversity),
+    simpson_se = sd(simpson_diversity) / sqrt(n())
+  )
+shannon_diversity |> glimpse()
+```
+
+```{r}
+p_shannon_diversity <- shannon_diversity |>
+  mutate(
+    site = case_when(
+      site == "JCR" ~ "Cattle Pasture",
+      site == "LOM" ~ "Grassland"
+    )
+  ) |>
+  ggplot(
+    aes(
+      x = parse_number(dt),
+      y = shannon_mean,
+      group = condition,
+      color = condition
+    )
+  ) +
+  # geom_smooth(method = "lm", se = FALSE) +
+  # stat_poly_eq(
+  #   position = position_dodge(width = 2),
+  #   label.x = 0,
+  #   label.y = 0,
+  #   use_label("eq", "R2")
+  # ) +
+  geom_line(aes(group = condition), alpha = 0.2) +
+  geom_pointrange(
+    aes(
+      ymin = shannon_mean - shannon_se,
+      ymax = shannon_mean + shannon_se,
+      shape = site,
+      fill = condition
+    )
+  ) +
+  facet_wrap(vars(site), scales = "free_y") +
+  coord_cartesian(ylim = c(3.5, 5.3)) +
+  scale_fill_manual(values = c("#4E80C7", "#FC9403")) +
+  scale_color_manual(values = c("#4E80C7", "#FC9403")) +
+  scale_shape_manual(values = c(21, 22)) +
+  labs(
+    x = "Time after rewetting (hr)",
+    y = "Shannon Diversity"
+  ) +
+  theme_bw() +
+  theme(
+    aspect.ratio = 1,
+    panel.grid = element_blank(),
+    strip.text = element_text(face = "bold"),
+    strip.background = element_blank(),
+    legend.position = "none",
+    axis.text = element_text(color = "black", face = "bold")
+  )
+p_shannon_diversity
+
+# ggsave(
+#   filename = "fig_output/metabolite_shannon.pdf",
+#   plot = p_shannon_diversity,
+#   height = 4,
+#   width = 5
+# )
+```
+
+```{r}
+p_simpson_diversity <- shannon_diversity |>
+  mutate(
+    site = case_when(
+      site == "JCR" ~ "Cattle Pasture",
+      site == "LOM" ~ "Grassland"
+    )
+  ) |>
+  ggplot(
+    aes(
+      x = parse_number(dt),
+      y = simpson_mean
+    )
+  ) +
+  geom_line(aes(group = condition), alpha = 0.2) +
+  geom_pointrange(
+    aes(
+      ymin = simpson_mean - simpson_se,
+      ymax = simpson_mean + simpson_se,
+      shape = site,
+      fill = condition
+    )
+  ) +
+  facet_wrap(vars(site)) +
+  #coord_cartesian(ylim = c(3.5, 5.3)) +
+  scale_fill_manual(values = c("#4E80C7", "#FC9403")) +
+  scale_shape_manual(values = c(21, 22)) +
+  labs(
+    x = "Time after rewetting (hr)",
+    y = "Simpson Diversity"
+  ) +
+  theme_bw() +
+  theme(
+    aspect.ratio = 1,
+    panel.grid = element_blank(),
+    strip.text = element_text(face = "bold"),
+    strip.background = element_blank(),
+    legend.position = "none",
+    axis.text = element_text(color = "black", face = "bold")
+  )
+p_simpson_diversity
+
+ggsave(
+  filename = "fig_output/metabolite_simpson.pdf",
+  plot = p_simpson_diversity,
+  height = 4,
+  width = 5
+)
+```
+
