@@ -1,7 +1,6 @@
 ---
 title: "Weather data"
 format: html
-editor: visual
 editor_options: 
   chunk_output_type: console
 ---
@@ -15,6 +14,10 @@ library(tidyverse)
 ```{r}
 jcr_weather <- read_csv(
   "data/Weather Data/Jalama Canyon Ranch Weather Station Data_10022024.csv"
+)
+
+jcr_weather2 <- read_csv(
+  "data/Weather Data/Jalama Canyon Ranch Rainfall (Hill Weather Station) 07072025 to 01302026 (1).csv"
 )
 
 # check col types
@@ -200,11 +203,11 @@ p_jcr_new <- jcr_new |>
 
 p_jcr_new
 
-```  
+```
 
 # LOM weather
-  
-  ```{r}
+
+```{r}
 lom_weather <- read_csv(
   "data/Weather Data/HICKS_CYN.csv",
   skip = 3
@@ -271,4 +274,91 @@ cowplot::save_plot(
   base_width = 4,
   plot = p_combined
 )
+```
+
+# new JCR weather
+
+```{r}
+new_jcr <- jcr_weather2 |>
+  janitor::clean_names() |>
+  rename(datetime = localizeddatetime_r_n) |>
+  mutate(
+    datetime = str_remove(datetime, "\\\\r\\\\n'$"),
+    datetime = lubridate::ymd_hms(datetime),
+    year = lubridate::year(datetime),
+    month = lubridate::month(datetime),
+    day = lubridate::day(datetime),
+    date = lubridate::date(datetime),
+    yearmonth = lubridate::floor_date(datetime, "month")
+  ) |>
+  select(datetime, date, yearmonth, month, day, everything()) |>
+  #filter(datetime < "2025-04-20 00:00:00", datetime > "2024-10-01 00:00:00") |>
+  group_by(date) |>
+  summarise(
+    total_rain_per_day = max(day_rain_c, na.rm = TRUE)
+  ) |>
+  ungroup() |>
+  mutate(accumulated_rain = cumsum(total_rain_per_day))
+
+new_jcr |>
+  ggplot(
+    aes(x = date, y = accumulated_rain)
+  ) +
+  geom_area(fill = "gray", alpha = 0.25) +
+  geom_line() +
+  scale_y_continuous(
+    #breaks = c(0, 1, 2, 3, 4, 5, 6, 7, 8),
+    sec.axis = sec_axis(
+      transform = ~ . * 25.4,
+      name = "Accumulated Precipitation (mm)"
+    )
+  ) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  coord_cartesian(expand = FALSE) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "Accumulated Precipitation (in)",
+    title = "Jalama Canyon Ranch (Cattle Pasture)"
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    aspect.ratio = 1,
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+
+
+```{r}
+jcr_both <- jcr_new |>
+  mutate(year = "first") |>
+  bind_rows(new_jcr |> mutate(year = "second"))
+
+jcr_both |>
+  ggplot(
+    aes(x = date, y = accumulated_rain, color = year)
+  ) +
+  geom_area(fill = "gray", alpha = 0.25) +
+  geom_line() +
+  scale_y_continuous(
+    #breaks = c(0, 1, 2, 3, 4, 5, 6, 7, 8),
+    sec.axis = sec_axis(
+      transform = ~ . * 25.4,
+      name = "Accumulated Precipitation (mm)"
+    )
+  ) +
+  #scale_x_date(date_breaks = "1 month", date_labels = "%b") +
+  #facet_wrap(vars(year), ncol = 1, scales = "free_x") +
+  coord_cartesian(expand = FALSE) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "Accumulated Precipitation (in)",
+    title = "Jalama Canyon Ranch (Cattle Pasture)"
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    aspect.ratio = 1,
+    plot.title = element_text(hjust = 0.5)
+  )
 ```
