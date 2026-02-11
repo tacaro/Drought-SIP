@@ -1,0 +1,258 @@
+---
+title: "14 grodon data viz"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(tidyverse)
+library(ggpmisc)
+```
+
+```{r}
+gr <- read_rds("cache/grodon_bakta_data_cache2.RDS") |>
+  mutate(
+    condition = case_when(
+      str_detect(bin_name, "R") ~ "Drought",
+      str_detect(bin_name, "S") ~ "Control"
+    ),
+    site = case_when(
+      str_detect(bin_name, "J") ~ "Cattle Pasture",
+      str_detect(bin_name, "L") ~ "Grassland"
+    )
+  )
+```
+
+```{r}
+gr_summary <- gr |>
+  group_by(condition) |>
+  summarise(TG_hr = median(TG_hr, na.rm = TRUE)) |>
+  ungroup() |>
+  mutate(
+    xdiff = case_when(condition == "Drought" ~ 2, condition == "Control" ~ 1)
+  )
+
+p_gr <- gr |>
+  ggplot(
+    aes(
+      y = TG_hr,
+      x = condition
+    )
+  ) +
+  stat_multcomp(use_label("P"), mc.cutoff.p.value = 0.05) +
+  geom_segment(
+    x = 0,
+    xend = 2,
+    y = gr_summary |> filter(condition == "Drought") |> pull(TG_hr),
+    yend = gr_summary |> filter(condition == "Drought") |> pull(TG_hr),
+    linetype = "dotted"
+  ) +
+  geom_segment(
+    x = 0,
+    xend = 1,
+    y = gr_summary |> filter(condition == "Control") |> pull(TG_hr),
+    yend = gr_summary |> filter(condition == "Control") |> pull(TG_hr),
+    linetype = "dotted"
+  ) +
+  ggdist::stat_slabinterval(
+    aes(fill = condition),
+    slab_color = "black",
+    slab_linewidth = 0.5
+  ) +
+  #facet_wrap(vars(site)) +
+  scale_fill_manual(values = c("#4E80C7", "#FC9403")) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "CUB-predicted \nminimum doubling time",
+    fill = ""
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    legend.position = "none"
+    # legend.position = "inside",
+    # legend.position.inside = c(0.8, 0.8)
+  )
+
+p_gr
+
+ggsave("fig_output/grodon_bakta.pdf", height = 4, width = 5)
+```
+
+write excel sheet of summarized data
+
+```{r}
+gr_summary |> writexl::write_xlsx("data_output/grodon_bakta_summarized2.xlsx")
+```
+
+Supp figure broken out by site
+
+
+```{r}
+p_gr2 <- gr |>
+  ggplot(
+    aes(
+      y = TG_hr,
+      x = condition
+    )
+  ) +
+  stat_multcomp(use_label("P")) +
+  ggdist::stat_slabinterval(
+    aes(fill = condition),
+    slab_color = "black",
+    slab_linewidth = 0.5
+  ) +
+  facet_wrap(vars(site)) +
+  scale_fill_manual(values = c("#4E80C7", "#FC9403")) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "CUB-predicted \nminimum doubling time",
+    fill = "",
+    title = "Cattle Pasture"
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
+
+p_gr2
+
+ggsave("fig_output/grodon_bakta_SI.pdf", height = 4, width = 5)
+```
+
+# Look at taxa
+
+
+```{r}
+taxa_ar <- read_tsv("data/taxa/gtdbtk.ar53.summary-2.tsv")
+taxa_bac <- read_tsv("data/taxa/gtdbtk.bac120.summary-4.tsv")
+
+taxa <- bind_rows(taxa_ar, taxa_bac) |>
+  # pare down the data
+  select(bin_name = user_genome, classification) |>
+  # this fn takes a delimited string and separates into column names
+  separate_wider_delim(
+    classification,
+    delim = ";",
+    names = c(
+      "domain",
+      "phylum",
+      "class",
+      "order",
+      "family",
+      "genus",
+      "species"
+    ),
+    too_few = "align_start"
+  ) |>
+  mutate(across(domain:species, ~ str_remove(., "^[a-z]__"))) # remove prefixes like "d__"
+
+```
+
+
+```{r}
+gr_taxa <- gr |> left_join(taxa, by = "bin_name")
+```
+
+```{r}
+
+```
+
+```{r}
+p_gr3 <- gr_taxa |>
+  ggplot(
+    aes(
+      y = TG_hr,
+      x = condition
+    )
+  ) +
+  geom_point(shape = 1, position = position_nudge(x = -0.1)) +
+  #stat_multcomp(use_label("P"), mc.cutoff.p.value = 0.05) +
+  geom_segment(
+    x = 0,
+    xend = 2,
+    y = gr_summary |> filter(condition == "Drought") |> pull(TG_hr),
+    yend = gr_summary |> filter(condition == "Drought") |> pull(TG_hr),
+    linetype = "dotted"
+  ) +
+  geom_segment(
+    x = 0,
+    xend = 1,
+    y = gr_summary |> filter(condition == "Control") |> pull(TG_hr),
+    yend = gr_summary |> filter(condition == "Control") |> pull(TG_hr),
+    linetype = "dotted"
+  ) +
+  ggdist::stat_slabinterval(
+    aes(fill = condition),
+    slab_color = "black",
+    slab_linewidth = 0.5
+  ) +
+  geom_text(
+    aes(label = phylum),
+    hjust = 0,
+    size = 2,
+    position = position_nudge(x = 0.05)
+  ) +
+  scale_fill_manual(values = c("#4E80C7", "#FC9403")) +
+  theme_bw() +
+  labs(
+    x = "",
+    y = "CUB-predicted \nminimum doubling time",
+    fill = ""
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
+
+p_gr3
+```
+
+
+```{r}
+p_gr4 <- gr_taxa |>
+  mutate(phylum = fct_reorder(phylum, TG_hr, .desc = TRUE)) |>
+  ggplot(
+    aes(
+      x = phylum,
+      y = TG_hr
+    )
+  ) +
+  #geom_boxplot(outlier.shape = NA) +
+  scale_y_continuous(
+    sec.axis = sec_axis(
+      transform = ~ log(2) / .,
+      breaks = c(0.01, 0.05, 0.1, 0.5),
+      name = latex2exp::TeX("CUB-predicted \nmaximum growth rate $(d^{-1})$")
+    )
+  ) +
+  ggdist::stat_pointinterval() +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    aspect.ratio = 1,
+    axis.title.x = element_text(hjust = 0),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm")
+  ) +
+  labs(
+    y = "CUB-predicted \nminimum doubling time (d)",
+    x = "Phylum"
+  )
+
+p_gr4
+
+ggsave(
+  filename = "fig_output/taxa_grodon.pdf",
+  plot = p_gr4,
+  height = 5,
+  width = 5
+)
+```
+
