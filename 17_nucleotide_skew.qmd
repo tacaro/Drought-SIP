@@ -1,0 +1,105 @@
+---
+title: "17 Nucleotide Skew"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r}
+library(tidyverse)
+library(ggpmisc)
+
+nuc <- read_tsv("data/nucleotide_skew.tsv") |>
+  rename(bin_name = genome) |>
+  mutate(
+    condition = case_when(
+      str_detect(bin_name, "R") ~ "Drought",
+      str_detect(bin_name, "S") ~ "Control"
+    ),
+    site = case_when(
+      str_detect(bin_name, "J") ~ "Cattle Pasture",
+      str_detect(bin_name, "L") ~ "Grassland"
+    )
+  )
+```
+
+
+plot
+
+```{r}
+p_skew <- nuc |>
+  pivot_longer(
+    cols = contains("skew"),
+    names_to = "skew_type",
+    values_to = "skew"
+  ) |>
+  mutate(
+    site.condition = paste(site, condition),
+    nuc_pairs = case_when(
+      str_detect(skew_type, "AT") ~ "AT",
+      str_detect(skew_type, "GC") ~ "GC"
+    ),
+    site_type = case_when(
+      str_detect(skew_type, "nonsyn") ~ "Non-Syn.",
+      str_detect(skew_type, "syn_") ~ "Syn."
+    )
+  ) |>
+  ggplot(
+    aes(
+      x = site.condition,
+      y = skew,
+      color = condition
+    )
+  ) +
+  stat_multcomp(
+    use_label("P"),
+    geom = "text_pairwise",
+    mc.cutoff.p.value = 0.05,
+    label.y = 0.1
+  ) +
+  ggdist::stat_pointinterval() +
+  coord_cartesian(clip = "off", ylim = c(-0.8, 0.45)) +
+  scale_color_manual(values = c("#4E80C7", "#FC9403")) +
+  facet_grid(nuc_pairs ~ site_type) +
+  theme_minimal() +
+  labs(
+    x = "",
+    y = "Skew"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none",
+    panel.border = element_rect(color = "black"),
+    strip.text = element_text(size = 12)
+  )
+
+p_skew
+
+ggsave(
+  plot = p_skew,
+  filename = "fig_output/nuc_skew.pdf",
+  height = 7,
+  width = 7
+)
+```
+
+by cog category
+
+```{r}
+cog <- read_tsv("data/cog_skew.tsv")
+
+cog_genome <- read_tsv("data/cog_skew_per_genome.tsv") |>
+  rename(bin_name = genome) |>
+  mutate(
+    condition = case_when(
+      str_detect(bin_name, "R") ~ "Drought",
+      str_detect(bin_name, "S") ~ "Control"
+    ),
+    site = case_when(
+      str_detect(bin_name, "J") ~ "Cattle Pasture",
+      str_detect(bin_name, "L") ~ "Grassland"
+    )
+  )
+```

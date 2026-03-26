@@ -1,0 +1,90 @@
+---
+title: "16 Metabolomics Pathway"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r}
+library(tidyverse)
+
+# do some final cleaning
+combined <- readxl::read_xlsx("data_output/gcms_data_cleaned.xlsx") |>
+  bind_rows(readxl::read_excel("data_output/lcms_data_cleaned.xlsx")) |>
+  filter(!is.na(site), !is.na(compound), !is.na(inchikey))
+
+# re export to excel
+combined |> writexl::write_xlsx("data_output/metabolomics_for_pathway.xlsx")
+```
+
+```{python}
+import pandas as pd
+
+df = pd.read_excel("data_output/metabolomics_for_pathway.xlsx")
+```
+
+
+```{python}
+
+
+def parse_metacyc_compounds(filepath):
+    inchikey_map = {}
+    current = {}
+    with open(filepath, "r", encoding="latin-1") as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("UNIQUE-ID"):
+                current["id"] = line.split(" - ", 1)[1]
+            elif line.startswith("INCHI-KEY"):
+                current["inchikey"] = (
+                    line.split(" - ", 1)[1].replace("InChIKey=", "").strip()
+                )
+            elif line == "//":
+                if "id" in current and "inchikey" in current:
+                    inchikey_map[current["inchikey"]] = current["id"]
+                current = {}
+    return inchikey_map
+
+
+def map_by_inchikey(excel_path, compounds_dat_path, inchikey_col="inchikey"):
+    df = pd.read_excel(excel_path)
+    inchikey_map = parse_metacyc_compounds(compounds_dat_path)
+
+    df["metacyc_id"] = df[inchikey_col].map(inchikey_map)
+    df["matched"] = df["metacyc_id"].notna()
+
+    print(f"Matched:   {df['matched'].sum()} / {len(df)}")
+    print(f"Unmatched: {(~df['matched']).sum()}")
+    return df
+
+
+df_mapped = map_by_inchikey(
+    excel_path="your_data.xlsx",
+    compounds_dat_path="compounds.dat",
+    inchikey_col="inchikey",  # <-- change to your actual column name
+)
+
+df_mapped.to_excel("compound_mapping_results.xlsx", index=False)
+```
+
+```{python}
+# Add fallback: match on first layer only (connectivity block)
+metacyc_first_layer = {k[:14]: v for k, v in inchikey_map.items()}
+
+def match_with_fallback(inchikey):
+    if pd.isna(inchikey):
+        return None, None
+    full_match = inchikey_map.get(inchikey)
+    if full_match:
+        return full_match, 'full_inchikey'
+    first_layer_match = metacyc_first_layer.get(inchikey[:14])
+    if first_layer_match:
+        return first_layer_match, 'first_layer_fallback'
+    return None, 'no_match'
+
+df_mapped[['metacyc_id', 'match_method']] = df_mapped['inchikey'].apply(
+    lambda x: pd.Series(match_with_fallback(x))
+)
+```

@@ -1,0 +1,457 @@
+genome	cog_category	description	n_genes	syn_G	syn_C	syn_A	syn_T	syn_GC_skew	syn_AT_skew
+bin.JR.1	K	Transcription	8	281	271	100	147	0.018116	-0.190283
+bin.JR.1	O	Post-translational modification and chaperones	7	562	507	240	290	0.051450	-0.094340
+bin.JR.1	C	Energy production and conversion	10	441	462	186	211	-0.023256	-0.062972
+bin.JR.1	T	Signal transduction	2	134	107	54	67	0.112033	-0.107438
+bin.JR.1	I	Lipid transport and metabolism	3	156	137	51	93	0.064846	-0.291667
+bin.JR.1	G	Carbohydrate transport and metabolism	6	371	445	183	209	-0.090686	-0.066327
+bin.JR.1	U	Intracellular trafficking and secretion	2	131	114	63	78	0.069388	-0.106383
+bin.JR.1	E	Amino acid transport and metabolism	4	248	272	120	161	-0.046154	-0.145907
+bin.JR.1	P	Inorganic ion transport and metabolism	4	85	83	38	45	0.011905	-0.084337
+bin.JR.1	F	Nucleotide transport and metabolism	3	221	175	72	101	0.116162	-0.167630
+bin.JR.1	V	Defense mechanisms	3	131	173	72	95	-0.138158	-0.137725
+bin.JR.1	J	Translation, ribosomal structure and biogenesis	20	634	657	312	402	-0.017816	-0.126050
+bin.JR.1	B	Chromatin structure and dynamics	1	4	6	7	6	-0.200000	0.076923
+bin.JR.1	D	Cell cycle control and mitosis	2	118	122	55	62	-0.016667	-0.059829
+bin.JR.1	Z	Cytoskeleton	1	65	72	23	29	-0.051095	-0.115385
+bin.JR.1	H	Coenzyme transport and metabolism	3	160	175	80	108	-0.044776	-0.148936
+bin.JR.1	M	Cell wall/membrane biogenesis	1	60	51	27	23	0.081081	0.080000
+bin.JR.1	N	Cell motility	1	41	59	22	20	-0.180000	0.047619
+bin.JR.11	E	Amino acid transport and metabolism	18	1927	2512	26	106	-0.131786	-0.606061
+bin.JR.11	I	Lipid transport and metabolism	8	472	651	9	46	-0.159394	-0.672727
+bin.JR.11	H	Coenzyme transport and metabolism	3	246	274	6	24	-0.053846	-0.600000
+bin.JR.11	G	Carbohydrate transport and metabolism	4	218	396	5	21	-0.289902	-0.615385
+bin.JR.11	T	Signal transduction	5	299	349	10	24	-0.077160	-0.411765
+bin.JR.11	M	Cell wall/membrane biogenesis	4	375	493	6	25	-0.135945	-0.612903
+bin.JR.11	F	Nucleotide transport and metabolism	6	359	462	3	17	-0.125457	-0.700000
+bin.JR.11	R	General function prediction only	3	198	230	8	9	-0.074766	-0.058824
+bin.JR.11	C	Energy production and conversion	9	773	1085	28	74	-0.167922	-0.450980
+bin.JR.11	P	Inorganic ion transport and metabolism	1	203	150	1	9	0.150142	-0.800000
+bin.JR.11	J	Translation, ribosomal structure and biogenesis	14	531	855	8	117	-0.233766	-0.872000
+bin.JR.11	K	Transcription	13	690	813	21	109	-0.081836	-0.676923
+bin.JR.11	S	Function unknown	1	14	13	2	6	0.037037	-0.500000
+bin.JR.11	Q	Secondary metabolites biosynthesis and transport	2	69	71	3	5	-0.014286	-0.250000
+bin.JR.11	N	Cell motility	2	158	176	1	14	-0.053892	-0.866667
+bin.JR.11	O	Post-translational modification and chaperones	3	173	142	2	12	0.098413	-0.714286
+bin.JR.11	D	Cell cycle control and mitosis	2	161	187	4	13	-0.074713	-0.529412
+bin.JR.11	Z	Cytoskeleton	1	87	114	2	10	-0.134328	-0.666667
+bin.JR.11	V	Defense mechanisms	2	177	214	11	15	-0.094629	-0.153846
+bin.JR.11	U	Intracellular trafficking and secretion	1	10	26	2	6	-0.444444	-0.500000
+bin.JR.12	S	Function unknown	1	24	44	2	3	-0.294118	-0.200000
+bin.JR.2	H	Coenzyme transport and metabolism	3	99	58	93	99	0.261146	-0.031250
+bin.JR.2	T	Signal transduction	5	175	86	163	177	0.340996	-0.041176
+bin.JR.2	K	Transcription	12	192	136	214	286	0.170732	-0.144000
+bin.JR.2	G	Carbohydrate transport and metabolism	3	63	74	137	177	-0.080292	-0.127389
+bin.JR.2	Q	Secondary metabolites biosynthesis and transport	1	3	8	15	7	-0.454545	0.363636
+bin.JR.2	J	Translation, ribosomal structure and biogenesis	21	510	391	749	1019	0.132075	-0.152715
+bin.JR.2	C	Energy production and conversion	9	204	114	515	710	0.283019	-0.159184
+bin.JR.2	D	Cell cycle control and mitosis	8	236	157	192	238	0.201018	-0.106977
+bin.JR.2	O	Post-translational modification and chaperones	2	58	39	151	152	0.195876	-0.003300
+bin.JR.2	I	Lipid transport and metabolism	2	11	23	32	27	-0.352941	0.084746
+bin.JR.2	E	Amino acid transport and metabolism	7	262	189	387	420	0.161863	-0.040892
+bin.JR.2	N	Cell motility	1	28	18	44	57	0.217391	-0.128713
+bin.JR.2	V	Defense mechanisms	2	13	15	47	54	-0.071429	-0.069307
+bin.JR.2	S	Function unknown	4	28	19	59	49	0.191489	0.092593
+bin.JR.2	R	General function prediction only	2	49	30	78	109	0.240506	-0.165775
+bin.JR.2	L	Replication, recombination and repair	1	35	42	48	76	-0.090909	-0.225806
+bin.JR.2	F	Nucleotide transport and metabolism	2	51	27	118	129	0.307692	-0.044534
+bin.JR.2	Z	Cytoskeleton	1	36	26	40	52	0.161290	-0.130435
+bin.JR.2	M	Cell wall/membrane biogenesis	1	14	7	16	8	0.333333	0.333333
+bin.JR.2	P	Inorganic ion transport and metabolism	1	14	20	17	22	-0.176471	-0.128205
+bin.JR.3	I	Lipid transport and metabolism	77	5841	7181	773	1474	-0.102903	-0.311972
+bin.JR.3	R	General function prediction only	99	6627	7479	827	1372	-0.060400	-0.247840
+bin.JR.3	S	Function unknown	45	2379	2506	286	583	-0.025998	-0.341772
+bin.JR.3	H	Coenzyme transport and metabolism	102	6919	8162	879	1649	-0.082422	-0.304589
+bin.JR.3	K	Transcription	147	8861	9533	1124	1859	-0.036534	-0.246396
+bin.JR.3	T	Signal transduction	99	7868	8970	895	1594	-0.065447	-0.280836
+bin.JR.3	V	Defense mechanisms	37	2934	3153	338	661	-0.035978	-0.323323
+bin.JR.3	M	Cell wall/membrane biogenesis	90	6838	7943	941	1856	-0.074758	-0.327136
+bin.JR.3	G	Carbohydrate transport and metabolism	65	6286	6646	697	1236	-0.027838	-0.278841
+bin.JR.3	E	Amino acid transport and metabolism	196	15962	18601	1829	3365	-0.076353	-0.295726
+bin.JR.3	L	Replication, recombination and repair	54	4622	5681	571	1167	-0.102786	-0.342923
+bin.JR.3	P	Inorganic ion transport and metabolism	90	7988	8332	962	1455	-0.021078	-0.203972
+bin.JR.3	C	Energy production and conversion	79	5871	7007	762	1436	-0.088212	-0.306642
+bin.JR.3	J	Translation, ribosomal structure and biogenesis	110	6146	7566	848	2025	-0.103559	-0.409676
+bin.JR.3	W	Extracellular structures	3	245	298	19	39	-0.097606	-0.344828
+bin.JR.3	D	Cell cycle control and mitosis	21	1259	1477	141	375	-0.079678	-0.453488
+bin.JR.3	O	Post-translational modification and chaperones	67	3705	4586	464	997	-0.106260	-0.364819
+bin.JR.3	B	Chromatin structure and dynamics	4	71	98	18	51	-0.159763	-0.478261
+bin.JR.3	F	Nucleotide transport and metabolism	41	2912	3694	382	738	-0.118377	-0.317857
+bin.JR.3	N	Cell motility	28	1902	1969	183	443	-0.017308	-0.415335
+bin.JR.3	U	Intracellular trafficking and secretion	22	1375	1539	173	354	-0.056280	-0.343454
+bin.JR.3	Q	Secondary metabolites biosynthesis and transport	23	1319	1636	201	327	-0.107276	-0.238636
+bin.JR.3	A	RNA processing and modification	1	28	46	2	5	-0.243243	-0.428571
+bin.JR.3	Z	Cytoskeleton	2	132	207	17	57	-0.221239	-0.540541
+bin.JR.3	X	Unknown	1	38	65	6	8	-0.262136	-0.142857
+bin.JR.6	C	Energy production and conversion	9	333	507	385	817	-0.207143	-0.359401
+bin.JR.6	J	Translation, ribosomal structure and biogenesis	26	342	581	469	1128	-0.258938	-0.412649
+bin.JR.6	T	Signal transduction	11	228	306	199	383	-0.146067	-0.316151
+bin.JR.6	O	Post-translational modification and chaperones	5	136	212	243	424	-0.218391	-0.271364
+bin.JR.6	R	General function prediction only	2	60	78	61	102	-0.130435	-0.251534
+bin.JR.6	E	Amino acid transport and metabolism	24	930	1239	925	1668	-0.142462	-0.286541
+bin.JR.6	G	Carbohydrate transport and metabolism	5	178	292	218	392	-0.242553	-0.285246
+bin.JR.6	H	Coenzyme transport and metabolism	10	355	462	368	626	-0.130967	-0.259557
+bin.JR.6	K	Transcription	11	251	322	203	449	-0.123909	-0.377301
+bin.JR.6	D	Cell cycle control and mitosis	3	110	88	96	153	0.111111	-0.228916
+bin.JR.6	F	Nucleotide transport and metabolism	3	172	239	168	328	-0.163017	-0.322581
+bin.JR.6	I	Lipid transport and metabolism	4	65	91	77	144	-0.166667	-0.303167
+bin.JR.6	L	Replication, recombination and repair	1	54	48	56	72	0.058824	-0.125000
+bin.JR.6	V	Defense mechanisms	1	12	11	19	22	0.043478	-0.073171
+bin.JR.6	N	Cell motility	3	117	110	97	130	0.030837	-0.145374
+bin.JR.6	W	Extracellular structures	1	37	39	31	58	-0.026316	-0.303371
+bin.JR.6	U	Intracellular trafficking and secretion	1	49	35	38	44	0.166667	-0.073171
+bin.JR.6	B	Chromatin structure and dynamics	2	15	19	26	42	-0.117647	-0.235294
+bin.JR.7	J	Translation, ribosomal structure and biogenesis	34	592	624	929	2179	-0.026316	-0.402188
+bin.JR.7	C	Energy production and conversion	27	813	656	1095	2279	0.106875	-0.350919
+bin.JR.7	E	Amino acid transport and metabolism	26	753	748	1164	2104	0.003331	-0.287638
+bin.JR.7	V	Defense mechanisms	4	67	89	103	155	-0.141026	-0.201550
+bin.JR.7	K	Transcription	22	379	415	550	947	-0.045340	-0.265197
+bin.JR.7	O	Post-translational modification and chaperones	12	324	299	418	936	0.040128	-0.382570
+bin.JR.7	I	Lipid transport and metabolism	16	523	583	673	1373	-0.054250	-0.342131
+bin.JR.7	M	Cell wall/membrane biogenesis	3	96	76	102	179	0.116279	-0.274021
+bin.JR.7	L	Replication, recombination and repair	4	146	152	124	273	-0.020134	-0.375315
+bin.JR.7	H	Coenzyme transport and metabolism	13	273	269	407	798	0.007380	-0.324481
+bin.JR.7	T	Signal transduction	7	134	117	191	382	0.067729	-0.333333
+bin.JR.7	Q	Secondary metabolites biosynthesis and transport	2	33	40	29	65	-0.095890	-0.382979
+bin.JR.7	B	Chromatin structure and dynamics	2	12	9	32	40	0.142857	-0.111111
+bin.JR.7	D	Cell cycle control and mitosis	4	80	74	134	181	0.038961	-0.149206
+bin.JR.7	F	Nucleotide transport and metabolism	12	232	261	404	873	-0.058824	-0.367267
+bin.JR.7	N	Cell motility	2	60	59	67	101	0.008403	-0.202381
+bin.JR.7	P	Inorganic ion transport and metabolism	2	61	69	42	82	-0.061538	-0.322581
+bin.JR.7	S	Function unknown	2	8	11	11	11	-0.157895	0.000000
+bin.JR.7	U	Intracellular trafficking and secretion	2	106	101	92	183	0.024155	-0.330909
+bin.JR.7	Z	Cytoskeleton	1	34	33	52	74	0.014925	-0.174603
+bin.JR.7	R	General function prediction only	4	28	62	78	101	-0.377778	-0.128492
+bin.JR.7	G	Carbohydrate transport and metabolism	4	150	137	223	413	0.045296	-0.298742
+bin.JR.8	H	Coenzyme transport and metabolism	58	3180	4098	505	785	-0.126134	-0.217054
+bin.JR.8	J	Translation, ribosomal structure and biogenesis	93	4844	5733	775	1791	-0.084050	-0.395947
+bin.JR.8	E	Amino acid transport and metabolism	96	7013	8831	887	1693	-0.114744	-0.312403
+bin.JR.8	C	Energy production and conversion	64	4827	5740	699	1542	-0.086401	-0.376171
+bin.JR.8	K	Transcription	80	4574	4755	712	1163	-0.019402	-0.240533
+bin.JR.8	M	Cell wall/membrane biogenesis	95	7314	8216	1173	2170	-0.058081	-0.298235
+bin.JR.8	V	Defense mechanisms	26	1717	1910	203	353	-0.053212	-0.269784
+bin.JR.8	S	Function unknown	39	1634	1826	259	380	-0.055491	-0.189358
+bin.JR.8	D	Cell cycle control and mitosis	27	1906	2026	321	670	-0.030519	-0.352170
+bin.JR.8	T	Signal transduction	95	7400	8778	1134	1606	-0.085177	-0.172263
+bin.JR.8	G	Carbohydrate transport and metabolism	47	4272	4949	545	873	-0.073419	-0.231312
+bin.JR.8	R	General function prediction only	76	5184	5801	760	1168	-0.056168	-0.211618
+bin.JR.8	O	Post-translational modification and chaperones	69	4146	4815	711	1454	-0.074657	-0.343187
+bin.JR.8	P	Inorganic ion transport and metabolism	58	4213	4675	583	891	-0.051980	-0.208955
+bin.JR.8	N	Cell motility	28	2203	2050	312	699	0.035975	-0.382789
+bin.JR.8	U	Intracellular trafficking and secretion	27	1814	1944	290	664	-0.034593	-0.392034
+bin.JR.8	L	Replication, recombination and repair	36	3026	3359	594	892	-0.052153	-0.200538
+bin.JR.8	F	Nucleotide transport and metabolism	30	1727	2319	310	505	-0.146317	-0.239264
+bin.JR.8	I	Lipid transport and metabolism	48	3221	4070	428	925	-0.116445	-0.367332
+bin.JR.8	Q	Secondary metabolites biosynthesis and transport	27	1503	1999	253	377	-0.141633	-0.196825
+bin.JR.8	Z	Cytoskeleton	2	92	135	10	40	-0.189427	-0.600000
+bin.JR.8	W	Extracellular structures	2	58	85	16	33	-0.188811	-0.346939
+bin.JR.8	X	Unknown	1	37	52	13	14	-0.168539	-0.037037
+bin.JR.8	B	Chromatin structure and dynamics	1	13	16	5	23	-0.103448	-0.642857
+bin.JR.8	A	RNA processing and modification	1	37	35	6	5	0.027778	0.090909
+bin.JRP.2	I	Lipid transport and metabolism	36	2295	3397	306	554	-0.193605	-0.288372
+bin.JRP.2	R	General function prediction only	52	3856	5438	540	948	-0.170217	-0.274194
+bin.JRP.2	P	Inorganic ion transport and metabolism	63	4061	5490	563	1005	-0.149618	-0.281888
+bin.JRP.2	E	Amino acid transport and metabolism	117	8440	11839	1093	2018	-0.167612	-0.297332
+bin.JRP.2	M	Cell wall/membrane biogenesis	41	3416	4910	489	939	-0.179438	-0.315126
+bin.JRP.2	O	Post-translational modification and chaperones	39	2264	3450	255	567	-0.207560	-0.379562
+bin.JRP.2	H	Coenzyme transport and metabolism	39	2584	3808	277	521	-0.191489	-0.305764
+bin.JRP.2	S	Function unknown	23	883	1301	133	219	-0.191392	-0.244318
+bin.JRP.2	G	Carbohydrate transport and metabolism	86	6479	9281	959	1652	-0.177792	-0.265416
+bin.JRP.2	V	Defense mechanisms	18	1638	2220	197	391	-0.150855	-0.329932
+bin.JRP.2	U	Intracellular trafficking and secretion	5	385	544	33	86	-0.171152	-0.445378
+bin.JRP.2	C	Energy production and conversion	44	3543	5122	433	816	-0.182227	-0.306645
+bin.JRP.2	F	Nucleotide transport and metabolism	23	1496	2323	174	364	-0.216549	-0.353160
+bin.JRP.2	T	Signal transduction	42	2514	3636	372	625	-0.182439	-0.253761
+bin.JRP.2	N	Cell motility	5	439	668	64	118	-0.206865	-0.296703
+bin.JRP.2	D	Cell cycle control and mitosis	11	804	1096	91	192	-0.153684	-0.356890
+bin.JRP.2	J	Translation, ribosomal structure and biogenesis	53	3156	4798	313	833	-0.206437	-0.453752
+bin.JRP.2	K	Transcription	45	2099	2884	288	530	-0.157536	-0.295844
+bin.JRP.2	L	Replication, recombination and repair	25	2270	3271	175	437	-0.180653	-0.428105
+bin.JRP.2	Q	Secondary metabolites biosynthesis and transport	20	1517	2085	182	349	-0.157690	-0.314501
+bin.JRP.2	B	Chromatin structure and dynamics	3	39	86	9	21	-0.376000	-0.400000
+bin.JRP.2	W	Extracellular structures	1	108	175	6	30	-0.236749	-0.666667
+bin.JRP.2	X	Unknown	1	29	42	2	4	-0.183099	-0.333333
+bin.JS.10	Q	Secondary metabolites biosynthesis and transport	1	23	29	8	4	-0.115385	0.333333
+bin.JS.10	C	Energy production and conversion	1	23	29	8	4	-0.115385	0.333333
+bin.JS.10	J	Translation, ribosomal structure and biogenesis	1	11	8	3	4	0.157895	-0.142857
+bin.JS.12	B	Chromatin structure and dynamics	1	22	13	8	10	0.257143	-0.111111
+bin.JS.16	J	Translation, ribosomal structure and biogenesis	2	49	35	9	14	0.166667	-0.217391
+bin.JS.16	K	Transcription	1	39	51	13	14	-0.133333	-0.037037
+bin.JS.16	T	Signal transduction	4	101	109	29	26	-0.038095	0.054545
+bin.JS.16	E	Amino acid transport and metabolism	1	18	29	4	4	-0.234043	0.000000
+bin.JS.16	F	Nucleotide transport and metabolism	1	45	53	15	11	-0.081633	0.153846
+bin.JS.16	I	Lipid transport and metabolism	1	6	17	3	5	-0.478261	-0.250000
+bin.JS.16	O	Post-translational modification and chaperones	1	124	169	19	29	-0.153584	-0.208333
+bin.JS.17	K	Transcription	1	13	6	5	7	0.368421	-0.166667
+bin.JS.17	I	Lipid transport and metabolism	1	13	6	9	5	0.368421	0.285714
+bin.JS.17	P	Inorganic ion transport and metabolism	1	95	97	22	25	-0.010417	-0.063830
+bin.JS.17	C	Energy production and conversion	1	95	97	22	25	-0.010417	-0.063830
+bin.JS.17	J	Translation, ribosomal structure and biogenesis	3	80	69	21	26	0.073826	-0.106383
+bin.JS.19	H	Coenzyme transport and metabolism	3	201	238	33	60	-0.084282	-0.290323
+bin.JS.19	E	Amino acid transport and metabolism	3	224	232	37	58	-0.017544	-0.221053
+bin.JS.19	T	Signal transduction	7	332	369	69	114	-0.052782	-0.245902
+bin.JS.19	X	Unknown	1	19	14	4	7	0.151515	-0.272727
+bin.JS.19	V	Defense mechanisms	1	60	64	7	14	-0.032258	-0.333333
+bin.JS.19	K	Transcription	11	561	640	108	197	-0.065779	-0.291803
+bin.JS.19	C	Energy production and conversion	1	28	41	1	12	-0.188406	-0.846154
+bin.JS.19	J	Translation, ribosomal structure and biogenesis	9	499	678	47	173	-0.152082	-0.572727
+bin.JS.19	S	Function unknown	1	29	34	8	6	-0.079365	0.142857
+bin.JS.19	O	Post-translational modification and chaperones	2	92	93	18	25	-0.005405	-0.162791
+bin.JS.19	I	Lipid transport and metabolism	2	68	75	9	12	-0.048951	-0.142857
+bin.JS.19	R	General function prediction only	3	95	91	16	21	0.021505	-0.135135
+bin.JS.19	G	Carbohydrate transport and metabolism	2	157	200	16	32	-0.120448	-0.333333
+bin.JS.19	D	Cell cycle control and mitosis	1	48	60	9	12	-0.111111	-0.142857
+bin.JS.19	L	Replication, recombination and repair	2	118	158	28	33	-0.144928	-0.081967
+bin.JS.19	U	Intracellular trafficking and secretion	1	51	37	6	19	0.159091	-0.520000
+bin.JS.19	F	Nucleotide transport and metabolism	1	78	84	5	11	-0.037037	-0.375000
+bin.JS.22	Q	Secondary metabolites biosynthesis and transport	1	24	14	9	14	0.263158	-0.217391
+bin.JS.23	C	Energy production and conversion	1	24	18	73	61	0.142857	0.089552
+bin.JS.7	J	Translation, ribosomal structure and biogenesis	1	24	22	2	5	0.043478	-0.428571
+bin.JS.7	H	Coenzyme transport and metabolism	1	149	131	18	19	0.064286	-0.027027
+bin.JS.7	C	Energy production and conversion	1	149	131	18	19	0.064286	-0.027027
+bin.JS.7	O	Post-translational modification and chaperones	1	39	36	5	8	0.040000	-0.230769
+bin.JS.9	J	Translation, ribosomal structure and biogenesis	10	279	402	72	98	-0.180617	-0.152941
+bin.JS.9	E	Amino acid transport and metabolism	17	1166	1268	203	265	-0.041906	-0.132479
+bin.JS.9	L	Replication, recombination and repair	5	278	364	42	91	-0.133956	-0.368421
+bin.JS.9	T	Signal transduction	13	748	823	190	212	-0.047740	-0.054726
+bin.JS.9	C	Energy production and conversion	15	894	1053	188	278	-0.081664	-0.193133
+bin.JS.9	K	Transcription	18	686	773	148	201	-0.059630	-0.151862
+bin.JS.9	O	Post-translational modification and chaperones	14	915	1010	168	253	-0.049351	-0.201900
+bin.JS.9	H	Coenzyme transport and metabolism	7	509	696	92	115	-0.155187	-0.111111
+bin.JS.9	D	Cell cycle control and mitosis	2	130	195	25	29	-0.200000	-0.074074
+bin.JS.9	R	General function prediction only	9	556	607	124	147	-0.043852	-0.084871
+bin.JS.9	V	Defense mechanisms	3	379	297	73	99	0.121302	-0.151163
+bin.JS.9	F	Nucleotide transport and metabolism	2	118	142	26	27	-0.092308	-0.018868
+bin.JS.9	Q	Secondary metabolites biosynthesis and transport	5	290	325	55	83	-0.056911	-0.202899
+bin.JS.9	X	Unknown	1	96	79	33	49	0.097143	-0.195122
+bin.JS.9	I	Lipid transport and metabolism	13	906	1002	207	254	-0.050314	-0.101952
+bin.JS.9	N	Cell motility	2	106	118	13	27	-0.053571	-0.350000
+bin.JS.9	U	Intracellular trafficking and secretion	2	144	126	29	34	0.066667	-0.079365
+bin.JS.9	G	Carbohydrate transport and metabolism	6	394	501	94	140	-0.119553	-0.196581
+bin.JS.9	M	Cell wall/membrane biogenesis	1	58	39	7	14	0.195876	-0.333333
+bin.JS.9	P	Inorganic ion transport and metabolism	1	28	32	7	4	-0.066667	0.272727
+bin.JS.9	S	Function unknown	1	59	71	15	18	-0.092308	-0.090909
+bin.JSP.12	J	Translation, ribosomal structure and biogenesis	1	30	29	2	12	0.016949	-0.714286
+bin.JSP.12	R	General function prediction only	1	34	29	12	10	0.079365	0.090909
+bin.JSP.12	E	Amino acid transport and metabolism	1	16	24	7	10	-0.200000	-0.176471
+bin.JSP.12	T	Signal transduction	1	16	24	7	10	-0.200000	-0.176471
+bin.JSP.12	K	Transcription	1	13	9	2	7	0.181818	-0.555556
+bin.JSP.14	J	Translation, ribosomal structure and biogenesis	1	18	9	4	4	0.333333	0.000000
+bin.JSP.23	J	Translation, ribosomal structure and biogenesis	2	38	46	5	8	-0.095238	-0.230769
+bin.JSP.23	Q	Secondary metabolites biosynthesis and transport	1	22	38	3	1	-0.266667	0.500000
+bin.JSP.23	C	Energy production and conversion	1	22	38	3	1	-0.266667	0.500000
+bin.JSP.24	E	Amino acid transport and metabolism	3	175	175	5	11	0.000000	-0.375000
+bin.JSP.24	K	Transcription	4	159	152	12	23	0.022508	-0.314286
+bin.JSP.24	T	Signal transduction	6	453	485	36	49	-0.034115	-0.152941
+bin.JSP.24	C	Energy production and conversion	2	137	98	5	12	0.165957	-0.411765
+bin.JSP.24	J	Translation, ribosomal structure and biogenesis	3	56	76	7	13	-0.151515	-0.300000
+bin.JSP.24	I	Lipid transport and metabolism	2	110	131	8	12	-0.087137	-0.200000
+bin.JSP.24	D	Cell cycle control and mitosis	2	195	213	10	20	-0.044118	-0.333333
+bin.JSP.24	Z	Cytoskeleton	1	84	98	6	14	-0.076923	-0.400000
+bin.JSP.24	H	Coenzyme transport and metabolism	2	127	134	11	11	-0.026820	0.000000
+bin.JSP.24	N	Cell motility	3	190	213	16	19	-0.057072	-0.085714
+bin.JSP.24	U	Intracellular trafficking and secretion	1	70	99	8	12	-0.171598	-0.200000
+bin.JSP.24	O	Post-translational modification and chaperones	1	16	37	3	6	-0.396226	-0.333333
+bin.JSP.24	W	Extracellular structures	2	120	114	8	7	0.025641	0.066667
+bin.JSP.4	Q	Secondary metabolites biosynthesis and transport	1	23	24	4	10	-0.021277	-0.428571
+bin.JSP.4	C	Energy production and conversion	1	23	24	4	10	-0.021277	-0.428571
+bin.JSP.4	O	Post-translational modification and chaperones	1	8	6	1	3	0.142857	-0.500000
+bin.JSP.5	F	Nucleotide transport and metabolism	9	280	180	297	295	0.217391	0.003378
+bin.JSP.5	P	Inorganic ion transport and metabolism	3	77	86	103	82	-0.055215	0.113514
+bin.JSP.5	J	Translation, ribosomal structure and biogenesis	30	498	491	681	857	0.007078	-0.114434
+bin.JSP.5	L	Replication, recombination and repair	3	220	167	164	167	0.136951	-0.009063
+bin.JSP.5	K	Transcription	8	123	103	97	126	0.088496	-0.130045
+bin.JSP.5	T	Signal transduction	7	177	147	164	169	0.092593	-0.015015
+bin.JSP.5	H	Coenzyme transport and metabolism	8	271	259	276	271	0.022642	0.009141
+bin.JSP.5	O	Post-translational modification and chaperones	3	129	103	129	122	0.112069	0.027888
+bin.JSP.5	U	Intracellular trafficking and secretion	3	104	117	98	92	-0.058824	0.031579
+bin.JSP.5	I	Lipid transport and metabolism	4	188	172	185	179	0.044444	0.016484
+bin.JSP.5	G	Carbohydrate transport and metabolism	3	115	116	142	109	-0.004329	0.131474
+bin.JSP.5	M	Cell wall/membrane biogenesis	4	200	196	196	156	0.010101	0.113636
+bin.JSP.5	C	Energy production and conversion	5	226	186	341	412	0.097087	-0.094290
+bin.JSP.5	E	Amino acid transport and metabolism	13	513	452	593	549	0.063212	0.038529
+bin.JSP.5	S	Function unknown	6	86	68	81	70	0.116883	0.072848
+bin.JSP.5	R	General function prediction only	7	235	251	247	234	-0.032922	0.027027
+bin.JSP.5	D	Cell cycle control and mitosis	2	74	57	48	63	0.129771	-0.135135
+bin.JSP.5	B	Chromatin structure and dynamics	1	9	5	15	18	0.285714	-0.090909
+bin.JSP.5	A	RNA processing and modification	1	7	14	13	13	-0.333333	0.000000
+bin.JSP.5	N	Cell motility	1	48	17	12	19	0.476923	-0.225806
+bin.JSP.5	V	Defense mechanisms	1	18	7	22	16	0.440000	0.157895
+bin.JSP.7	C	Energy production and conversion	2	185	202	31	48	-0.043928	-0.215190
+bin.JSP.7	I	Lipid transport and metabolism	1	29	21	6	10	0.160000	-0.250000
+bin.JSP.7	Q	Secondary metabolites biosynthesis and transport	1	21	24	4	15	-0.066667	-0.578947
+bin.JSP.9	M	Cell wall/membrane biogenesis	2	28	33	53	83	-0.081967	-0.220588
+bin.JSP.9	D	Cell cycle control and mitosis	1	38	27	30	54	0.169231	-0.285714
+bin.JSP.9	Z	Cytoskeleton	1	38	27	30	54	0.169231	-0.285714
+bin.JSP.9	K	Transcription	4	66	58	73	107	0.064516	-0.188889
+bin.JSP.9	T	Signal transduction	1	19	15	17	27	0.117647	-0.227273
+bin.JSP.9	I	Lipid transport and metabolism	2	29	31	48	47	-0.033333	0.010526
+bin.JSP.9	Q	Secondary metabolites biosynthesis and transport	1	59	16	36	39	0.573333	-0.040000
+bin.JSP.9	J	Translation, ribosomal structure and biogenesis	5	48	35	91	105	0.156627	-0.071429
+bin.JSP.9	C	Energy production and conversion	2	29	31	65	73	-0.033333	-0.057971
+bin.LR.1	R	General function prediction only	1	28	46	9	4	-0.243243	0.384615
+bin.LR.11	J	Translation, ribosomal structure and biogenesis	1	7	10	0	8	-0.176471	-1.000000
+bin.LR.11	B	Chromatin structure and dynamics	1	19	18	5	5	0.027027	0.000000
+bin.LR.5	H	Coenzyme transport and metabolism	1	43	53	5	1	-0.104167	0.666667
+bin.LRP.8	P	Inorganic ion transport and metabolism	1	9	11	1	1	-0.100000	0.000000
+bin.LRP.8	J	Translation, ribosomal structure and biogenesis	1	9	6	1	2	0.200000	-0.333333
+bin.LS.1	P	Inorganic ion transport and metabolism	20	1130	1689	153	283	-0.198297	-0.298165
+bin.LS.1	E	Amino acid transport and metabolism	71	4954	8338	671	1222	-0.254589	-0.291072
+bin.LS.1	L	Replication, recombination and repair	16	1753	2809	261	415	-0.231477	-0.227811
+bin.LS.1	K	Transcription	39	1702	2557	270	456	-0.200751	-0.256198
+bin.LS.1	R	General function prediction only	20	975	1619	141	290	-0.248265	-0.345708
+bin.LS.1	I	Lipid transport and metabolism	26	1623	2721	215	447	-0.252762	-0.350453
+bin.LS.1	C	Energy production and conversion	29	2135	3434	286	496	-0.233256	-0.268542
+bin.LS.1	O	Post-translational modification and chaperones	19	887	1401	120	270	-0.224650	-0.384615
+bin.LS.1	J	Translation, ribosomal structure and biogenesis	45	2298	3737	294	677	-0.238442	-0.394439
+bin.LS.1	V	Defense mechanisms	4	121	199	16	27	-0.243750	-0.255814
+bin.LS.1	T	Signal transduction	22	1003	1548	186	315	-0.213642	-0.257485
+bin.LS.1	F	Nucleotide transport and metabolism	22	1346	2221	200	356	-0.245304	-0.280576
+bin.LS.1	G	Carbohydrate transport and metabolism	40	2498	3996	344	573	-0.230674	-0.249727
+bin.LS.1	H	Coenzyme transport and metabolism	19	1152	2120	135	296	-0.295844	-0.373550
+bin.LS.1	Q	Secondary metabolites biosynthesis and transport	9	663	1010	100	162	-0.207412	-0.236641
+bin.LS.1	S	Function unknown	10	379	683	62	98	-0.286252	-0.225000
+bin.LS.1	M	Cell wall/membrane biogenesis	5	318	460	63	92	-0.182519	-0.187097
+bin.LS.1	U	Intracellular trafficking and secretion	2	148	186	20	31	-0.113772	-0.215686
+bin.LS.1	B	Chromatin structure and dynamics	2	32	49	3	10	-0.209877	-0.538462
+bin.LS.10	P	Inorganic ion transport and metabolism	1	65	67	9	7	-0.015152	0.125000
+bin.LS.11	V	Defense mechanisms	1	14	17	8	9	-0.096774	-0.058824
+bin.LS.12	E	Amino acid transport and metabolism	1	15	25	7	10	-0.250000	-0.176471
+bin.LS.12	T	Signal transduction	1	15	25	7	10	-0.250000	-0.176471
+bin.LS.12	K	Transcription	1	12	8	4	7	0.200000	-0.272727
+bin.LS.12	J	Translation, ribosomal structure and biogenesis	1	9	14	2	6	-0.217391	-0.500000
+bin.LS.12	C	Energy production and conversion	1	35	35	4	7	0.000000	-0.272727
+bin.LS.13	K	Transcription	2	81	99	24	43	-0.100000	-0.283582
+bin.LS.13	J	Translation, ribosomal structure and biogenesis	3	57	38	11	18	0.200000	-0.241379
+bin.LS.13	B	Chromatin structure and dynamics	1	12	15	11	7	-0.111111	0.222222
+bin.LS.13	D	Cell cycle control and mitosis	1	75	76	16	21	-0.006623	-0.135135
+bin.LS.13	Z	Cytoskeleton	1	75	76	16	21	-0.006623	-0.135135
+bin.LS.16	J	Translation, ribosomal structure and biogenesis	2	19	24	6	11	-0.116279	-0.294118
+bin.LS.16	B	Chromatin structure and dynamics	1	12	19	7	9	-0.225806	-0.125000
+bin.LS.17	O	Post-translational modification and chaperones	1	13	16	6	8	-0.103448	-0.142857
+bin.LS.17	J	Translation, ribosomal structure and biogenesis	4	87	70	28	32	0.108280	-0.066667
+bin.LS.17	C	Energy production and conversion	1	9	12	2	2	-0.142857	0.000000
+bin.LS.18	J	Translation, ribosomal structure and biogenesis	2	20	23	5	6	-0.069767	-0.090909
+bin.LS.22	D	Cell cycle control and mitosis	1	68	122	3	7	-0.284211	-0.400000
+bin.LS.22	Z	Cytoskeleton	1	68	122	3	7	-0.284211	-0.400000
+bin.LS.22	K	Transcription	1	49	103	4	11	-0.355263	-0.466667
+bin.LS.22	E	Amino acid transport and metabolism	1	88	108	3	9	-0.102041	-0.500000
+bin.LS.23	I	Lipid transport and metabolism	17	1398	1561	162	180	-0.055086	-0.052632
+bin.LS.23	K	Transcription	23	1253	1374	148	186	-0.046060	-0.113772
+bin.LS.23	G	Carbohydrate transport and metabolism	4	445	501	24	50	-0.059197	-0.351351
+bin.LS.23	L	Replication, recombination and repair	6	656	688	77	97	-0.023810	-0.114943
+bin.LS.23	C	Energy production and conversion	12	1062	1166	106	137	-0.046679	-0.127572
+bin.LS.23	R	General function prediction only	12	1067	1133	110	133	-0.030000	-0.094650
+bin.LS.23	J	Translation, ribosomal structure and biogenesis	25	813	1097	98	144	-0.148691	-0.190083
+bin.LS.23	T	Signal transduction	17	1260	1366	111	125	-0.040366	-0.059322
+bin.LS.23	S	Function unknown	6	574	554	49	59	0.017730	-0.092593
+bin.LS.23	F	Nucleotide transport and metabolism	6	517	539	59	63	-0.020833	-0.032787
+bin.LS.23	M	Cell wall/membrane biogenesis	6	607	653	65	88	-0.036508	-0.150327
+bin.LS.23	H	Coenzyme transport and metabolism	3	170	209	16	22	-0.102902	-0.157895
+bin.LS.23	E	Amino acid transport and metabolism	8	633	678	49	70	-0.034325	-0.176471
+bin.LS.23	V	Defense mechanisms	2	78	98	8	18	-0.113636	-0.384615
+bin.LS.23	P	Inorganic ion transport and metabolism	4	211	254	21	30	-0.092473	-0.176471
+bin.LS.23	O	Post-translational modification and chaperones	4	114	131	12	22	-0.069388	-0.294118
+bin.LS.23	D	Cell cycle control and mitosis	4	383	432	42	58	-0.060123	-0.160000
+bin.LS.24	C	Energy production and conversion	2	48	70	10	8	-0.186441	0.111111
+bin.LS.24	Q	Secondary metabolites biosynthesis and transport	1	23	29	6	5	-0.115385	0.090909
+bin.LS.24	J	Translation, ribosomal structure and biogenesis	1	10	8	3	6	0.111111	-0.333333
+bin.LS.26	H	Coenzyme transport and metabolism	123	2929	2055	5499	4995	0.175361	0.048027
+bin.LS.26	R	General function prediction only	115	2581	1962	4641	4445	0.136254	0.021572
+bin.LS.26	C	Energy production and conversion	98	2550	1968	5554	5457	0.128818	0.008809
+bin.LS.26	K	Transcription	129	2408	1760	4012	4171	0.155470	-0.019431
+bin.LS.26	X	Unknown	5	50	63	88	85	-0.115044	0.017341
+bin.LS.26	E	Amino acid transport and metabolism	178	5406	3673	10237	9474	0.190880	0.038709
+bin.LS.26	G	Carbohydrate transport and metabolism	100	2741	1868	5645	5358	0.189412	0.026084
+bin.LS.26	F	Nucleotide transport and metabolism	62	1531	1065	3406	3018	0.179507	0.060399
+bin.LS.26	P	Inorganic ion transport and metabolism	83	2110	1749	3913	3885	0.093548	0.003591
+bin.LS.26	U	Intracellular trafficking and secretion	23	378	295	671	741	0.123328	-0.049575
+bin.LS.26	D	Cell cycle control and mitosis	111	1965	1485	3764	3708	0.139130	0.007495
+bin.LS.26	I	Lipid transport and metabolism	88	2172	1709	4411	4106	0.119299	0.035811
+bin.LS.26	J	Translation, ribosomal structure and biogenesis	172	2903	2132	6307	7331	0.153128	-0.075084
+bin.LS.26	S	Function unknown	70	988	760	1741	1707	0.130435	0.009861
+bin.LS.26	L	Replication, recombination and repair	59	2245	1516	3833	3902	0.193831	-0.008920
+bin.LS.26	T	Signal transduction	93	2238	1530	3898	3885	0.187898	0.001670
+bin.LS.26	V	Defense mechanisms	31	808	563	1244	1189	0.178702	0.022606
+bin.LS.26	B	Chromatin structure and dynamics	2	4	5	39	42	-0.111111	-0.037037
+bin.LS.26	M	Cell wall/membrane biogenesis	79	2190	1555	4407	4023	0.169559	0.045552
+bin.LS.26	Q	Secondary metabolites biosynthesis and transport	15	337	281	635	663	0.090615	-0.021572
+bin.LS.26	O	Post-translational modification and chaperones	67	1441	1073	2959	2763	0.146380	0.034254
+bin.LS.26	N	Cell motility	26	544	331	806	866	0.243429	-0.035885
+bin.LS.26	Z	Cytoskeleton	2	47	30	101	116	0.220779	-0.069124
+bin.LS.26	A	RNA processing and modification	1	9	8	17	12	0.058824	0.172414
+bin.LS.27	J	Translation, ribosomal structure and biogenesis	5	83	96	30	37	-0.072626	-0.104478
+bin.LS.27	G	Carbohydrate transport and metabolism	1	60	96	14	22	-0.230769	-0.222222
+bin.LS.27	K	Transcription	1	20	34	11	13	-0.259259	-0.083333
+bin.LS.27	D	Cell cycle control and mitosis	1	56	83	21	33	-0.194245	-0.222222
+bin.LS.27	Z	Cytoskeleton	1	56	83	21	33	-0.194245	-0.222222
+bin.LS.27	S	Function unknown	1	73	50	19	17	0.186992	0.055556
+bin.LS.27	T	Signal transduction	3	180	171	57	67	0.025641	-0.080645
+bin.LS.27	M	Cell wall/membrane biogenesis	1	53	85	16	20	-0.231884	-0.111111
+bin.LS.27	E	Amino acid transport and metabolism	2	41	48	8	15	-0.078652	-0.304348
+bin.LS.28	J	Translation, ribosomal structure and biogenesis	1	7	13	12	13	-0.300000	-0.040000
+bin.LS.29	X	Unknown	1	22	16	8	11	0.157895	-0.157895
+bin.LS.29	J	Translation, ribosomal structure and biogenesis	10	267	334	42	124	-0.111481	-0.493976
+bin.LS.29	F	Nucleotide transport and metabolism	5	338	348	41	61	-0.014577	-0.196078
+bin.LS.29	K	Transcription	5	159	193	32	31	-0.096591	0.015873
+bin.LS.29	T	Signal transduction	6	147	206	27	37	-0.167139	-0.156250
+bin.LS.29	E	Amino acid transport and metabolism	7	470	630	59	78	-0.145455	-0.138686
+bin.LS.29	G	Carbohydrate transport and metabolism	4	335	442	30	47	-0.137709	-0.220779
+bin.LS.29	H	Coenzyme transport and metabolism	6	310	358	46	52	-0.071856	-0.061224
+bin.LS.29	M	Cell wall/membrane biogenesis	2	225	243	19	24	-0.038462	-0.116279
+bin.LS.29	L	Replication, recombination and repair	1	40	52	4	7	-0.130435	-0.272727
+bin.LS.29	C	Energy production and conversion	4	119	125	24	41	-0.024590	-0.261538
+bin.LS.29	O	Post-translational modification and chaperones	4	125	137	25	37	-0.045802	-0.193548
+bin.LS.29	V	Defense mechanisms	1	22	43	8	7	-0.323077	0.066667
+bin.LS.29	P	Inorganic ion transport and metabolism	1	5	14	3	4	-0.473684	-0.142857
+bin.LS.29	I	Lipid transport and metabolism	1	15	22	0	2	-0.189189	-1.000000
+bin.LS.31	J	Translation, ribosomal structure and biogenesis	2	52	35	7	14	0.195402	-0.333333
+bin.LS.31	X	Unknown	1	11	24	2	15	-0.371429	-0.764706
+bin.LS.32	Q	Secondary metabolites biosynthesis and transport	1	28	28	3	10	0.000000	-0.538462
+bin.LS.32	O	Post-translational modification and chaperones	1	26	41	13	17	-0.223881	-0.133333
+bin.LS.32	S	Function unknown	1	14	15	4	10	-0.034483	-0.428571
+bin.LS.32	R	General function prediction only	1	64	68	21	27	-0.030303	-0.125000
+bin.LS.4	J	Translation, ribosomal structure and biogenesis	1	12	21	2	3	-0.272727	-0.200000
+bin.LS.6	J	Translation, ribosomal structure and biogenesis	2	15	29	3	4	-0.318182	-0.142857
+bin.LS.6	F	Nucleotide transport and metabolism	1	15	25	0	1	-0.250000	-1.000000
+bin.LS.7	I	Lipid transport and metabolism	1	10	14	2	5	-0.166667	-0.428571
+bin.LS.7	D	Cell cycle control and mitosis	1	65	82	12	26	-0.115646	-0.368421
+bin.LS.7	Z	Cytoskeleton	1	65	82	12	26	-0.115646	-0.368421
+bin.LS.7	J	Translation, ribosomal structure and biogenesis	2	32	45	9	21	-0.168831	-0.400000
+bin.LS.7	K	Transcription	1	58	77	9	30	-0.140741	-0.538462
+bin.LS.9	K	Transcription	4	151	201	45	81	-0.142045	-0.285714
+bin.LS.9	J	Translation, ribosomal structure and biogenesis	8	152	207	38	71	-0.153203	-0.302752
+bin.LS.9	L	Replication, recombination and repair	1	40	46	10	15	-0.069767	-0.200000
+bin.LS.9	O	Post-translational modification and chaperones	4	260	440	61	158	-0.257143	-0.442922
+bin.LS.9	R	General function prediction only	1	47	58	11	9	-0.104762	0.100000
+bin.LS.9	E	Amino acid transport and metabolism	2	91	142	38	43	-0.218884	-0.061728
+bin.LS.9	T	Signal transduction	1	19	25	10	9	-0.136364	0.052632
+bin.LS.9	C	Energy production and conversion	2	64	126	26	30	-0.326316	-0.071429
+bin.LS.9	I	Lipid transport and metabolism	1	8	25	2	7	-0.515152	-0.555556
+bin.LS.9	V	Defense mechanisms	1	21	30	3	8	-0.176471	-0.454545
+bin.LSP.1	J	Translation, ribosomal structure and biogenesis	1	3	8	0	3	-0.454545	-1.000000
+bin.LSP.6	G	Carbohydrate transport and metabolism	311	28462	22991	6076	10442	0.106330	-0.264318
+bin.LSP.6	M	Cell wall/membrane biogenesis	192	14314	12095	3574	6767	0.084024	-0.308771
+bin.LSP.6	T	Signal transduction	177	13758	11108	3162	5601	0.106571	-0.278329
+bin.LSP.6	O	Post-translational modification and chaperones	144	8384	7021	2102	4382	0.088478	-0.351635
+bin.LSP.6	I	Lipid transport and metabolism	108	7800	6543	1878	3170	0.087639	-0.255943
+bin.LSP.6	K	Transcription	273	15554	12179	3755	6732	0.121696	-0.283875
+bin.LSP.6	E	Amino acid transport and metabolism	299	25186	20014	5184	9468	0.114425	-0.292383
+bin.LSP.6	R	General function prediction only	187	13587	11020	3018	4871	0.104320	-0.234884
+bin.LSP.6	P	Inorganic ion transport and metabolism	193	16503	12881	3259	5546	0.123264	-0.259739
+bin.LSP.6	C	Energy production and conversion	159	12747	11180	2702	5620	0.065491	-0.350637
+bin.LSP.6	J	Translation, ribosomal structure and biogenesis	249	12073	10708	3417	7988	0.059918	-0.400789
+bin.LSP.6	F	Nucleotide transport and metabolism	89	6056	5535	1464	2881	0.044949	-0.326122
+bin.LSP.6	H	Coenzyme transport and metabolism	172	10849	9059	2543	4465	0.089914	-0.274258
+bin.LSP.6	V	Defense mechanisms	74	5315	4408	1284	2229	0.093284	-0.269001
+bin.LSP.6	S	Function unknown	116	5038	4035	1303	2066	0.110548	-0.226477
+bin.LSP.6	L	Replication, recombination and repair	98	8346	6867	1791	3605	0.097219	-0.336175
+bin.LSP.6	Q	Secondary metabolites biosynthesis and transport	50	4006	3210	797	1415	0.110310	-0.279385
+bin.LSP.6	U	Intracellular trafficking and secretion	61	3476	2863	1069	1783	0.096703	-0.250351
+bin.LSP.6	D	Cell cycle control and mitosis	33	2212	1818	618	1277	0.097767	-0.347757
+bin.LSP.6	Z	Cytoskeleton	2	121	97	49	134	0.110092	-0.464481
+bin.LSP.6	B	Chromatin structure and dynamics	7	95	101	56	149	-0.030612	-0.453659
+bin.LSP.6	N	Cell motility	82	5194	4723	1255	2134	0.047494	-0.259369
+bin.LSP.6	W	Extracellular structures	13	1075	1101	265	367	-0.011949	-0.161392
+bin.LSP.6	X	Unknown	2	83	77	15	43	0.037500	-0.482759
+bin.LSP.6	A	RNA processing and modification	1	37	25	9	15	0.193548	-0.250000

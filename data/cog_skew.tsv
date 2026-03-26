@@ -1,0 +1,26 @@
+cog_category	description	n_genes	syn_G	syn_C	syn_A	syn_T	syn_GC_skew	syn_AT_skew
+N	Cell motility	184	11030	10511	2892	4647	0.024094	-0.232789
+P	Inorganic ion transport and metabolism	527	36858	35699	9697	13376	0.015974	-0.159450
+U	Intracellular trafficking and secretion	153	8241	8026	2592	4127	0.013217	-0.228457
+K	Transcription	865	40434	39506	11984	17933	0.011609	-0.198850
+S	Function unknown	327	12210	11990	4034	5302	0.009091	-0.135818
+D	Cell cycle control and mitosis	238	9983	9877	5632	7192	0.005337	-0.121647
+G	Carbohydrate transport and metabolism	691	53224	52931	15352	21746	0.002760	-0.172354
+V	Defense mechanisms	212	13525	13511	3663	5362	0.000518	-0.188255
+R	General function prediction only	595	35271	36002	10702	14000	-0.010256	-0.133511
+M	Cell wall/membrane biogenesis	527	36106	37055	11154	16467	-0.012971	-0.192354
+T	Signal transduction	625	39218	40300	10988	15514	-0.013607	-0.170780
+L	Replication, recombination and repair	312	23849	25220	7778	11249	-0.027940	-0.182425
+H	Coenzyme transport and metabolism	576	30526	32618	11289	14917	-0.033131	-0.138442
+E	Amino acid transport and metabolism	1095	74531	80067	23536	32821	-0.035809	-0.164753
+O	Post-translational modification and chaperones	471	23941	25764	8125	12935	-0.036676	-0.228395
+A	RNA processing and modification	5	118	128	47	50	-0.040650	-0.030928
+C	Energy production and conversion	592	37409	40757	13576	20638	-0.042832	-0.206407
+Q	Secondary metabolites biosynthesis and transport	162	9963	10867	2343	3551	-0.043399	-0.204954
+W	Extracellular structures	22	1643	1812	345	534	-0.048915	-0.215017
+J	Translation, ribosomal structure and biogenesis	977	37313	41760	15662	27332	-0.056239	-0.271433
+I	Lipid transport and metabolism	462	26959	30183	9494	13077	-0.056421	-0.158744
+X	Unknown	14	385	432	171	236	-0.057528	-0.159705
+F	Nucleotide transport and metabolism	318	17494	19692	7144	9779	-0.059108	-0.155705
+Z	Cytoskeleton	18	1000	1202	382	667	-0.091735	-0.271687
+B	Chromatin structure and dynamics	29	359	459	241	433	-0.122249	-0.284866
