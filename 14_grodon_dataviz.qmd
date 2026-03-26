@@ -248,11 +248,31 @@ p_gr4 <- gr_taxa |>
 
 p_gr4
 
-ggsave(
-  filename = "fig_output/taxa_grodon.pdf",
-  plot = p_gr4,
-  height = 5,
-  width = 5
-)
+# ggsave(
+#   filename = "fig_output/taxa_grodon.pdf",
+#   plot = p_gr4,
+#   height = 5,
+#   width = 5
+# )
 ```
 
+
+```{r}
+gr_taxa |>
+  select(
+    bin_name,
+    site,
+    condition,
+    TG_hr,
+    TG_lower_CI,
+    TG_upper_CI,
+    domain,
+    phylum,
+    class,
+    order,
+    family,
+    genus,
+    species
+  ) |>
+  writexl::write_xlsx("data_output/grodon_taxa.xlsx")
+```
