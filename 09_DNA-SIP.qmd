@@ -334,7 +334,7 @@ dna_sip_growth <- dna_sip_summarized |>
   ungroup() |>
   mutate(
     # supply parameters for growth calculation
-    a_w = 0.3, # fraction of oxygen in DNA from water
+    a_w = 0.7, # fraction of oxygen in DNA from water
     dt_d = dt_hr / 24, # convert hours to days
     mu_d = calculate_mu(
       a = a_w,
@@ -405,7 +405,7 @@ dna_sip_growth |>
 ```
 
 ```{r}
-saveRDS(dna_sip_growth, file = "cache/dna_sip_growth.rds")
+#saveRDS(dna_sip_growth, file = "cache/dna_sip_growth.rds")
 ```
 
 # compare with lipid SIP growth rates
@@ -522,7 +522,7 @@ p_compare_sips
 
 ```{r}
 ggsave(
-  filename = "fig_output/sip_compare.pdf",
+  filename = "fig_output/sip_compare_a_w.pdf",
   plot = p_compare_sips,
   height = 5,
   width = 5
