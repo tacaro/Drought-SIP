@@ -76,6 +76,7 @@ lcms <- readxl::read_excel(
     )
   )
 
+lcms |> writexl::write_xlsx("data_output/lcms_data_cleaned.xlsx")
 ```
 
 
