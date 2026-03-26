@@ -1,0 +1,68 @@
+---
+title: "04_IRMS Processing"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+# Setup
+
+```{r}
+library(tidyverse)
+library(ordr)
+
+# load data
+metab <- read_csv("data_output/exported_metaB.csv") |>
+  filter(!is.na(compound), !is.na(site), !is.na(dt)) |>
+  mutate(dt = fct_rev(factor(parse_number(dt)))) |>
+  pivot_wider(
+    id_cols = c(site, condition, dt),
+    names_from = compound,
+    values_from = peak_height
+  )
+```
+
+# ordinate
+
+```{r}
+metab_pca <- ordinate(
+  metab,
+  cols = -c(site, condition, dt),
+  model = ~ prcomp(., scale. = TRUE)
+)
+
+metab_pca
+```
+
+# screeeeeeee
+
+
+```{r}
+metab_pca |>
+  broom::tidy() |>
+  print() |>
+  ggplot(aes(x = name, y = prop_var)) +
+  geom_col() +
+  labs(x = "", y = "Proportion of inertia")
+
+```
+
+# biplot
+
+
+```{r}
+ggbiplot(
+  metab_pca,
+  sec.axes = "cols",
+  scale.factor = 2,
+  axis.type = "predictive"
+) +
+  geom_rows_point(aes(color = condition, shape = site), size = 5) +
+  scale_color_manual(values = c("#4E80C7", "#FC9403")) +
+  geom_line(
+    aes(group = interaction(site, condition)),
+    arrow = arrow(length = unit(0.1, "inches"), ends = "first"),
+    alpha = 0.5
+  ) +
+  theme_bw()
+```
