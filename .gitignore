@@ -12,3 +12,6 @@ data.csv
 cache/*
 cache/dna_sip_data.rds
 cache/dna_sip_data.rds
+data/~$SRA_Metagenome.environmental.1.0.xlsx
+data/SRA_Metagenome.environmental.1.0.xlsx
+data/SRA_metadata.xlsx
