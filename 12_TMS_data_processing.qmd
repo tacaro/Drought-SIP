@@ -327,7 +327,7 @@ p_lom_data_full <- lom_data_full |>
     )
   ) +
   geom_line() +
-  facet_wrap(vars(condition), ncol = 1) +
+  facet_grid(condition ~ depth_cm) +
   scale_y_continuous(labels = scales::percent) +
   coord_cartesian(ylim = c(0, 0.5)) +
   scale_color_grafify(palette = "r4") +
