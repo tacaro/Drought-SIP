@@ -1,0 +1,152 @@
+---
+title: "17 Nucleotide Skew"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+setup
+
+```{r}
+library(tidyverse)
+library(ggpmisc)
+```
+
+
+```{r}
+
+ra_plot <- ra |>
+  mutate(
+    phylum = if_else(
+      phylum %in% top10_phyla & phylum != "Chordata",
+      phylum,
+      "Other"
+    )
+  ) |>
+  group_by(sample, phylum) |>
+  summarise(relative_abundance = sum(relative_abundance), .groups = "drop") |>
+  mutate(phylum = fct_reorder(phylum, relative_abundance, .fun = sum)) |>
+  mutate(
+    site = case_when(
+      str_detect(sample, "J") ~ "Pasture",
+      str_detect(sample, "L") ~ "Grassland"
+    ),
+    condition = case_when(
+      str_detect(sample, "R") ~ "Drought",
+      str_detect(sample, "S") ~ "Control"
+    ),
+    timepoint = case_when(
+      str_detect(sample, "R7") | str_detect(sample, "S7") ~ "72 hr after Rewet",
+      str_detect(sample, "RP") | str_detect(sample, "SP") ~ "Pre-Rewet",
+    ),
+    timepoint = fct_rev(timepoint),
+    sitecondition = paste(site, condition)
+  )
+
+p_bar <- ra_plot |>
+  ggplot(aes(x = sample, y = relative_abundance, fill = phylum)) +
+  geom_col() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette = "Paired") +
+  facet_wrap(vars(sitecondition, timepoint), nrow = 2, scales = "free_x") +
+  labs(x = "", y = "Relative Abundance", fill = "Phylum") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank())
+p_bar
+
+p_donut <- ra_plot |>
+  group_by(sitecondition, timepoint, phylum) |>
+  summarise(relative_abundance = mean(relative_abundance), .groups = "drop") |>
+  ggplot(aes(x = 2, y = relative_abundance, fill = phylum)) +
+  geom_col(width = 1) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette = "Paired") +
+  facet_wrap(vars(timepoint, sitecondition), nrow = 2) +
+  coord_polar(theta = "y") +
+  xlim(0.5, 2.5) +
+  labs(x = NULL, y = NULL, fill = "Phylum") +
+  theme_void() +
+  theme(
+    strip.text = element_text(size = 10, face = "bold"),
+    legend.position = "right"
+  )
+p_donut
+```
+
+bacillus
+
+
+```{r}
+p_bacillota <- ra |>
+  filter(phylum == "Bacillota") |>
+  mutate(phylum = fct_reorder(phylum, relative_abundance, .fun = sum)) |>
+  mutate(
+    site = case_when(
+      str_detect(sample, "J") ~ "Pasture",
+      str_detect(sample, "L") ~ "Grassland"
+    ),
+    condition = case_when(
+      str_detect(sample, "R") ~ "Drought",
+      str_detect(sample, "S") ~ "Control"
+    ),
+    timepoint = case_when(
+      str_detect(sample, "R7") | str_detect(sample, "S7") ~ "72 hr after Rewet",
+      str_detect(sample, "RP") | str_detect(sample, "SP") ~ "Pre-Rewet",
+    ),
+    timepoint = fct_rev(timepoint),
+    sitecondition = paste(site, condition)
+  ) |>
+  ggplot(
+    aes(
+      x = timepoint,
+      y = relative_abundance,
+      color = condition,
+      shape = condition
+    )
+  ) +
+  geom_point(size = 4, stroke = 2) +
+  stat_multcomp(
+    use_label("P"),
+    geom = "text_pairwise",
+    mc.cutoff.p.value = 0.05,
+    label.y = 0.1
+  ) +
+  facet_wrap(vars(sitecondition)) +
+  scale_shape_manual(values = c(1, 16)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_color_manual(values = c("#4E80C7", "#FC9403")) +
+  coord_cartesian(ylim = c(0, 0.05)) +
+  labs(
+    x = "",
+    y = "Relative Abundance",
+    color = "",
+    shape = "",
+    title = "Bacillota"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(face = "bold", size = 12),
+    panel.border = element_rect(color = "black"),
+    aspect.ratio = 1,
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5, face = "italic")
+  )
+
+p_bacillota
+
+p_combined <- cowplot::plot_grid(
+  p_bar,
+  p_bacillota,
+  ncol = 2,
+  rel_widths = c(0.6, 0.4),
+  labels = c("A", "B")
+)
+p_combined
+
+cowplot::save_plot(
+  filename = "fig_output/phylumplot.pdf",
+  plot = p_combined,
+  base_height = 8,
+  base_width = 12
+)
+```
