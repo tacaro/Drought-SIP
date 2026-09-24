@@ -76,6 +76,8 @@ message(
 )
 ```
 
+Inspect the controls
+
 ```{r}
 controls <- dna_sip |> filter(control)
 
@@ -127,7 +129,7 @@ message(
 )
 ```
 
-run mass balance for sucrose and DNA oxygen contributions (remember, we diluted the DNA-O 1:100 with sucrose-O prior to analysis in order to achieve sufficient mass for IRMS analysis!)
+run mass balance for sucrose and DNA oxygen contributions (remember, we diluted the DNA-O ~1:100 with sucrose-O prior to analysis in order to achieve sufficient mass for IRMS analysis!)
 
 mass balance calculated as:
 
@@ -142,12 +144,12 @@ where T is measured, 1 is pool 1 (DNA), and 2 is pool 2 (sucrose) m1 = 1 ug m2 =
 
 ```{r}
 mass_balance_DNA_18O <- function(m_T, F_T, m_DNA, m_sucr, F_sucr) {
-  F_DNA = (m_T * F_T - m_sucr * F_sucr) / m_DNA
+  F_DNA <- (m_T * F_T - m_sucr * F_sucr) / m_DNA
   return(F_DNA)
 }
 
 mass_balance_necromass <- function(m_T, F_T, m_DNA, m_necro, F_necro) {
-  F_DNA = F_DNA = (m_T * F_T - m_necro * F_necro) / m_DNA
+  F_DNA <- (m_T * F_T - m_necro * F_necro) / m_DNA
   return(F_DNA)
 }
 
@@ -241,13 +243,17 @@ p_d18O_raw <- dna_sip_summarized |>
     y = latex2exp::TeX("$\\delta^{18}O_{VSMOW}$ (‰)")
   ) +
   theme(
-    panel.grid.minor.x = element_blank()
+    panel.grid.minor.x = element_blank(),
+    legend.position = "none"
   )
 p_d18O_raw
 
 
 p_F18O_raw <- dna_sip_summarized |>
   mutate(condition = factor(condition, levels = c("Drought", "Control"))) |>
+  mutate(
+    site = case_when(site == "JCR" ~ "Pasture", site == "LOM" ~ "Grassland")
+  ) |>
   ggplot(
     aes(
       x = dt_hr,
@@ -332,9 +338,10 @@ gwc_mini <- gwc |>
 dna_sip_growth <- dna_sip_summarized |>
   left_join(gwc_mini, by = c("site", "condition")) |>
   ungroup() |>
+  crossing(a_w = seq(0.3, 0.6, by = 0.1)) |>
   mutate(
     # supply parameters for growth calculation
-    a_w = 0.7, # fraction of oxygen in DNA from water
+    #a_w = 0.7, # fraction of oxygen in DNA from water
     dt_d = dt_hr / 24, # convert hours to days
     mu_d = calculate_mu(
       a = a_w,
@@ -367,12 +374,16 @@ dna_sip_growth <- dna_sip_summarized |>
 dna_sip_growth |>
   # refactor for plotting panels in order
   mutate(condition = factor(condition, levels = c("Drought", "Control"))) |>
+  mutate(
+    site = case_when(site == "JCR" ~ "Pasture", site == "LOM" ~ "Grassland")
+  ) |>
   # plot it!
   ggplot(
     aes(
       x = dt_hr,
       y = mu_d,
-      fill = gen_d
+      fill = as.factor(a_w),
+      group = as.factor(a_w)
     )
   ) +
   geom_line(linetype = "dotted") +
@@ -383,7 +394,7 @@ dna_sip_growth |>
     ),
     shape = 21,
   ) +
-  scale_fill_viridis_c(
+  scale_fill_viridis_d(
     begin = 1,
     end = 0
   ) +
@@ -392,15 +403,16 @@ dna_sip_growth |>
   labs(
     x = "Incubation Time (hr)",
     y = latex2exp::TeX("$\\mu_{DNA}$ (d$^{-1}$)"),
-    fill = "Generation Time (d)"
+    fill = latex2exp::TeX("$O_W$")
   ) +
   theme(
-    legend.position = "bottom",
+    legend.position = "right",
+    legend.title = element_text(vjust = 1),
     legend.key.height = unit(0.2, "cm"),
     legend.key.width = unit(1, "cm"),
   ) +
   guides(
-    fill = guide_colourbar(title.position = "left")
+    #fill = guide_colourbar(title.position = "left")
   )
 ```
 
@@ -437,6 +449,7 @@ compare_sips <- dna_sip_growth |>
   select(
     site,
     condition,
+    a_w,
     dt_d,
     mu_d_dna,
     mu_d_dna_se,
@@ -472,37 +485,146 @@ message(
   " times faster than lipid synthesis rates."
 )
 
+# original plot - not used!
+# compare_sips |>
+#   mutate(condition = factor(condition, levels = c("Control", "Drought"))) |>
+#   filter(dt_d != 0) |>
+#   ggplot(
+#     aes(
+#       x = mu_d_lipid,
+#       y = mu_d_dna,
+#       fill = as.factor(a_w)
+#     )
+#   ) +
+#   geom_abline(slope = 1) +
+#   geom_pointrange(
+#     aes(
+#       xmin = mu_d_lipid - mu_d_lipid_se,
+#       xmax = mu_d_lipid + mu_d_lipid_se,
+#       ymin = mu_d_dna - mu_d_dna_se,
+#       ymax = mu_d_dna + mu_d_dna_se,
+#       #fill = condition,
+#     ),
+#     size = .5,
+#     shape = 21,
+#     color = "black"
+#   ) +
+#   geom_errorbar(
+#     aes(x = mu_d_lipid - mu_d_lipid_se, xend = mu_d_lipid + mu_d_lipid_se)
+#   ) +
+#   scale_fill_brewer() +
+#   #scale_fill_manual(values = c("Drought" = "#ffac47", "Control" = "#4e80c7")) +
+#   #scale_shape_manual(values = c(21, 22)) +
+#   coord_cartesian(xlim = c(0, 0.6), ylim = c(0, 0.6), expand = FALSE) +
+#   facet_grid(site ~ condition) +
+#   theme_bw() +
+#   labs(
+#     x = latex2exp::TeX("$\\mu_{Lipid}$ (d$^{-1}$)"),
+#     y = latex2exp::TeX("$\\mu_{DNA}$ (d$^{-1}$)"),
+#     fill = latex2exp::TeX("$\\O_{W/DNA}$")
+#   ) +
+#   theme(
+#     panel.border = element_rect(color = "black", linewidth = 1),
+#     axis.line = element_blank(),
+#     panel.grid = element_blank(),
+#     aspect.ratio = 1,
+#     strip.background = element_rect(color = "black", fill = NA, linewidth = 1)
+#   )
+```
+
+error bar plot instead
+
+```{r}
 p_compare_sips <- compare_sips |>
-  mutate(condition = factor(condition, levels = c("Drought", "Control"))) |>
   filter(dt_d != 0) |>
+  group_by(site, condition, dt_d) |>
+  summarise(
+    min_dna = min(mu_d_dna),
+    max_dna = max(mu_d_dna),
+    mean_dna = mean(mu_d_dna),
+    mean_lipid = first(mu_d_lipid),
+    lipid_se = first(mu_d_lipid_se)
+  ) |>
+  ggplot(
+    aes(group = dt_d, color = as.factor(dt_d))
+  ) +
+  geom_abline(slope = 1) +
+  geom_errorbar(
+    aes(
+      x = mean_lipid,
+      y = mean_dna,
+      ymin = min_dna,
+      ymax = max_dna
+    ),
+    width = 0.02,
+    linewidth = 1
+  ) +
+  geom_errorbar(
+    aes(
+      x = mean_lipid,
+      y = mean_dna,
+      xmin = mean_lipid - lipid_se,
+      xmax = mean_lipid + lipid_se
+    ),
+    orientation = "y",
+    width = 0.02,
+    linewidth = 1
+  ) +
+  scale_color_manual(values = c("#206EE1", "#E61919")) +
+  coord_cartesian(xlim = c(0, 0.6), ylim = c(0, 0.6), expand = FALSE) +
+  facet_grid(site ~ condition) +
+  theme_bw() +
+  labs(
+    x = latex2exp::TeX("$\\mu_{Lipid}$ (d$^{-1}$)"),
+    y = latex2exp::TeX("$\\mu_{DNA}$ (d$^{-1}$)")
+  ) +
+  theme(
+    panel.border = element_rect(color = "black", linewidth = 1),
+    axis.line = element_blank(),
+    panel.grid = element_blank(),
+    aspect.ratio = 1,
+    strip.background = element_rect(color = "black", fill = NA, linewidth = 1),
+    legend.position = "none"
+  )
+
+p_compare_sips
+```
+
+
+new plot
+
+```{r}
+dna_summary <- compare_sips |>
+  filter(dt_d != 0) |>
+  group_by(
+    site,
+    condition
+  ) |>
+  summarise(
+    mu_d_dna_mean = mean(mu_d_dna),
+    mu_d_dna_max = max(mu_d_dna),
+    mu_d_dna_min = min(mu_d_dna)
+  )
+
+p_compare_sips_ow_uncertain <- compare_sips |>
+  left_join(dna_summary, by = join_by(site, condition)) |>
+  filter(dt_d != 0) |> #filter out timepoint zero
   ggplot(
     aes(
       x = mu_d_lipid,
-      y = mu_d_dna
+      y = mu_d_dna_mean
     )
   ) +
-  geom_line(
-    aes(
-      group = interaction(site, condition)
-    ),
-    arrow = arrow(length = unit(0.3, "cm"))
+  geom_abline(slope = 1, linetype = "dashed") +
+  geom_segment(
+    aes(x = mu_d_lipid - mu_d_lipid_se, xend = mu_d_lipid + mu_d_lipid_se)
   ) +
-  #geom_point(aes(shape = as.factor(dt_d), color = condition)) +
-  geom_pointrange(
-    aes(
-      xmin = mu_d_lipid - mu_d_lipid_se,
-      xmax = mu_d_lipid + mu_d_lipid_se,
-      ymin = mu_d_dna - mu_d_dna_se,
-      ymax = mu_d_dna + mu_d_dna_se,
-      fill = condition,
-      shape = as.factor(dt_d)
-    ),
-    size = .5,
-    color = "black"
+  geom_segment(
+    aes(y = mu_d_dna_min, yend = mu_d_dna_max)
   ) +
-  geom_abline(slope = 1) +
-  scale_fill_manual(values = c("Drought" = "#ffac47", "Control" = "#4e80c7")) +
+  geom_point(aes(fill = condition, shape = site), size = 3) +
   scale_shape_manual(values = c(21, 22)) +
+  scale_fill_manual(values = c("Drought" = "#ffac47", "Control" = "#4e80c7")) +
   coord_cartesian(xlim = c(0.02, 0.6), ylim = c(0.02, 0.6), expand = FALSE) +
   theme_classic() +
   labs(
@@ -516,14 +638,20 @@ p_compare_sips <- compare_sips |>
     panel.grid = element_blank(),
     aspect.ratio = 1
   )
-
-p_compare_sips
 ```
+
 
 ```{r}
 ggsave(
   filename = "fig_output/sip_compare_a_w.pdf",
   plot = p_compare_sips,
+  height = 5,
+  width = 5
+)
+
+ggsave(
+  filename = "fig_output/sip_compare_o_w_uncertain.pdf",
+  plot = p_compare_sips_ow_uncertain,
   height = 5,
   width = 5
 )

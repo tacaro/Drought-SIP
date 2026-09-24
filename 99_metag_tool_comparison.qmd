@@ -1,0 +1,479 @@
+---
+title: "metaG tool comparison"
+format: html
+---
+
+## setup
+
+```{r}
+library(tidyverse)
+library(ggpmisc)
+library(ltc)
+```
+
+## import data
+
+```{r}
+demic <- read_rds("cache/CBB_cache/tidy_demic.RDS") |>
+  mutate(tool = "DEMIC") |>
+  select(bin_name, sample_id, demic_ptr = PTR)
+
+grid <- read_rds("cache/CBB_cache/tidy_grid.RDS") |>
+  mutate(tool = "GRiD") |>
+  # own_MAG = this study's bins; SMAG = external reference genomes with an
+  # unrelated bin_name scheme, and would never match demic/irep bin_names anyway
+  filter(genome_source == "own_MAG", trusted) |>
+  select(bin_name, sample_id, grid_ptr = GRiD)
+
+grodon <- read_rds("cache/CBB_cache/tidy_grodon.RDS") |>
+  mutate(tool = "gRodon")
+
+irep <- read_rds("cache/CBB_cache/tidy_irep.RDS") |>
+  mutate(tool = "iRep") |>
+  # trusted == TRUE exactly matches rows where iRep produced a value (95/95)
+  filter(trusted) |>
+  select(bin_name, sample_id, iRep)
+```
+
+
+```{r}
+
+all_ptr <- demic |>
+  full_join(grid, by = join_by(bin_name, sample_id)) |>
+  full_join(irep, by = join_by(bin_name, sample_id)) |>
+  # site/condition/timepoint must come from sample_id, not bin_name: the same
+  # bin can be identified (and get a PTR) in samples from other conditions
+  # than the one it was originally binned from
+  mutate(
+    site = case_when(
+      str_detect(sample_id, "^J") ~ "Pasture",
+      str_detect(sample_id, "^L") ~ "Grassland"
+    ),
+    condition = case_when(
+      str_detect(sample_id, "^.R") ~ "Drought",
+      str_detect(sample_id, "^.S") ~ "Control"
+    ),
+    timepoint = case_when(
+      str_detect(sample_id, "^..P") ~ "Pre",
+      .default = "Post"
+    )
+  ) |>
+  rename(DEMIC = demic_ptr, GRiD = grid_ptr) |>
+  pivot_longer(
+    cols = c(iRep, GRiD, DEMIC),
+    values_to = "value",
+    names_to = "tool"
+  )
+```
+
+
+```{r}
+grodon |>
+  filter(site != "NA") |>
+  mutate(
+    site = case_when(site == "JCR" ~ "Pasture", site == "LOM" ~ "Grassland")
+  ) |>
+  ggplot(
+    aes(
+      x = condition,
+      y = TG_hr
+    )
+  ) +
+  geom_point(position = position_nudge(x = -0.1), shape = 95) +
+  ggdist::stat_halfeye() +
+  stat_multcomp(use_label("P")) +
+  facet_grid(. ~ site) +
+  labs(
+    x = "",
+    y = "Maximum generation time (hr)",
+    title = "gRodon"
+  ) +
+  theme_minimal()
+```
+
+
+## lin reg
+
+```{r}
+pal <- ltc("dora", 3, "discrete")
+
+ptr_plot_df <- all_ptr |>
+  mutate(
+    timepoint = case_when(
+      timepoint == "Pre" ~ "Rewet",
+      timepoint == "Post" ~ "Not Rewet"
+    )
+  ) |>
+  filter(!is.na(value))
+
+# n and median per (condition, timepoint) within each site x tool facet
+ptr_n <- ptr_plot_df |>
+  group_by(site, tool, condition, timepoint) |>
+  summarize(n = n(), median = median(value), .groups = "drop")
+
+p_all_ptr <- ptr_plot_df |>
+  ggplot(
+    aes(
+      y = paste(condition, timepoint),
+      x = value,
+      color = tool
+    )
+  ) +
+  scale_color_manual(values = pal) +
+  geom_point(shape = 124, position = position_nudge(y = -0.25)) +
+  ggdist::stat_halfeye(position = position_dodge()) +
+  geom_text(
+    data = ptr_n,
+    aes(x = median, label = paste0("n=", n)),
+    position = position_nudge(y = 0.30),
+    size = 2.5,
+    show.legend = FALSE
+  ) +
+  facet_grid(site ~ tool, scales = "free_x") +
+  labs(
+    y = "",
+    x = "PTR",
+    color = ""
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "None"
+  )
+
+p_all_ptr
+
+cowplot::save_plot(
+  filename = "fig_output/ptr_comp.pdf",
+  plot = p_all_ptr,
+  base_height = 5,
+  base_width = 7
+)
+```
+
+## heatmap
+
+```{r}
+hm_pal <- ltc("heatmap0", 10, "continuous")
+
+all_ptr |> pull(bin_name) |> unique()
+
+all_ptr |>
+  ggplot(
+    aes(
+      x = paste(bin_name, site, timepoint),
+      y = tool,
+      fill = value
+    )
+  ) +
+  geom_tile() +
+  scale_fill_gradientn(colours = hm_pal) +
+  coord_equal() + # make squares
+  facet_wrap(. ~ condition, ncol = 1) +
+  theme_bw() +
+  labs(
+    x = "MAG",
+    y = "",
+    fill = "PTR"
+  ) +
+  guides(fill = guide_colourbar(barheight = 0.5)) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    panel.grid = element_blank(),
+    legend.title = element_text(vjust = 1),
+    legend.position = "bottom"
+  )
+```
+
+
+```{r}
+all_ptr |>
+  mutate(
+    condition_label = factor(
+      paste(site, condition, timepoint, sep = " / "),
+      levels = paste(
+        rep(c("Pasture", "Grassland"), each = 4),
+        rep(c("Drought", "Control"), each = 2, times = 2),
+        rep(c("Pre", "Post"), times = 4),
+        sep = " / "
+      )
+    )
+  ) |>
+  summarise(
+    value = mean(value, na.rm = TRUE),
+    .by = c(bin_name, tool, condition_label)
+  ) |>
+  ggplot(
+    aes(
+      x = bin_name,
+      y = condition_label,
+      fill = value
+    )
+  ) +
+  geom_tile() +
+  scale_fill_gradientn(colours = hm_pal) +
+  facet_grid(tool ~ ., scales = "free_y", space = "free_y") +
+  theme_bw() +
+  labs(
+    x = "Bin",
+    y = "",
+    fill = "PTR"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+```
+
+
+```{r}
+pal3 <- ltc("dora", 3, "discrete")
+
+# one row per bin_name x sample_id, with a column per tool (NA if that tool
+# didn't report a PTR for that bin in that sample)
+ptr_wide <- all_ptr |>
+  select(bin_name, sample_id, tool, value) |>
+  pivot_wider(names_from = tool, values_from = value)
+
+# pairwise long format, keeping only bin+sample rows where *both* tools in
+# the pair reported a value, so the correlation is over matched observations
+tool_pairs <- bind_rows(
+  ptr_wide |>
+    filter(!is.na(DEMIC), !is.na(GRiD)) |>
+    transmute(
+      bin_name,
+      sample_id,
+      pair = "DEMIC vs. GRiD",
+      x = DEMIC,
+      y = GRiD
+    ),
+  ptr_wide |>
+    filter(!is.na(DEMIC), !is.na(iRep)) |>
+    transmute(
+      bin_name,
+      sample_id,
+      pair = "DEMIC vs. iRep",
+      x = DEMIC,
+      y = iRep
+    ),
+  ptr_wide |>
+    filter(!is.na(GRiD), !is.na(iRep)) |>
+    transmute(bin_name, sample_id, pair = "GRiD vs. iRep", x = GRiD, y = iRep)
+)
+
+p_tool_pairs <- tool_pairs |>
+  ggplot(
+    aes(
+      x = x,
+      y = y,
+      fill = pair,
+      color = pair
+    )
+  ) +
+  geom_abline() +
+  stat_poly_line(
+    method = "lm",
+    se = FALSE,
+    fullrange = TRUE
+  ) +
+  stat_poly_eq(use_label(c("eq", "R2"))) +
+  geom_point(shape = 21, color = "black") +
+  scale_fill_manual(values = pal3) +
+  scale_color_manual(values = pal3) +
+  coord_cartesian(xlim = c(1, 2.5), ylim = c(1, 2.5)) +
+  facet_wrap(~pair) +
+  labs(x = "PTR", y = "PTR", color = "") +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 14),
+    axis.text = element_text(size = 14),
+    axis.title = element_text(size = 14),
+    legend.position = "none",
+    aspect.ratio = 1,
+    panel.border = element_rect(color = "black")
+  )
+p_tool_pairs
+
+cowplot::save_plot(
+  filename = "fig_output/tool_pairs.pdf",
+  plot = p_tool_pairs,
+  base_height = 4,
+  base_width = 10
+)
+```
+
+
+what about smag?
+```{r}
+grid_smag <- read_rds("cache/CBB_cache/tidy_grid.RDS") |>
+  mutate(tool = "GRiD") |>
+  # own_MAG = this study's bins; SMAG = external reference genomes with an
+  # unrelated bin_name scheme, and would never match demic/irep bin_names anyway
+  filter(genome_source == "SMAG", trusted) |>
+  select(bin_name, sample_id, grid_ptr = GRiD)
+```
+
+
+```{r}
+all_ptr_smag <- demic |>
+  full_join(grid_smag, by = join_by(bin_name, sample_id)) |>
+  full_join(irep, by = join_by(bin_name, sample_id)) |>
+  # site/condition/timepoint must come from sample_id, not bin_name: the same
+  # bin can be identified (and get a PTR) in samples from other conditions
+  # than the one it was originally binned from
+  mutate(
+    site = case_when(
+      str_detect(sample_id, "^J") ~ "Pasture",
+      str_detect(sample_id, "^L") ~ "Grassland"
+    ),
+    condition = case_when(
+      str_detect(sample_id, "^.R") ~ "Drought",
+      str_detect(sample_id, "^.S") ~ "Control"
+    ),
+    timepoint = case_when(
+      str_detect(sample_id, "^..P") ~ "Pre",
+      .default = "Post"
+    )
+  ) |>
+  rename(DEMIC = demic_ptr, GRiD = grid_ptr) |>
+  pivot_longer(
+    cols = c(iRep, GRiD, DEMIC),
+    values_to = "value",
+    names_to = "tool"
+  )
+```
+
+
+```{r}
+all_ptr_smag |>
+  filter(tool == "GRiD") |>
+  ggplot(
+    aes(
+      x = condition,
+      y = value
+    )
+  ) +
+  #geom_point() +
+  ggdist::stat_halfeye() +
+  facet_wrap(. ~ site) +
+  labs(
+    x = "",
+    y = "GRiD PTR",
+    title = "GRiD (SMAG Genomes)"
+  ) +
+  theme_minimal()
+```
+
+# gRodon
+
+
+```{r}
+gtdb <- read_delim("data/MAG_GTDBTK/gtdbtk.bac120.summary.tsv") |>
+  bind_rows(read_delim("data/MAG_GTDBTK/gtdbtk.ar53.summary.tsv")) |>
+  rename(bin_name = user_genome)
+```
+
+
+```{r}
+grodon_tax <- grodon |>
+  left_join(gtdb, by = "bin_name") |>
+  # this fn takes a delimited string and separates into column names
+  separate_wider_delim(
+    classification,
+    delim = ";",
+    names = c(
+      "domain",
+      "phylum",
+      "class",
+      "order",
+      "family",
+      "genus",
+      "species"
+    ),
+    too_few = "align_start"
+  ) |>
+  mutate(across(domain:species, ~ str_remove(., "^[a-z]__"))) # remove prefixes like "d__"
+```
+
+
+```{r}
+grodon_tax |>
+  mutate(phylum = fct_reorder(as.factor(phylum), TG_hr, .desc = TRUE)) |>
+  ggplot(
+    aes(
+      x = phylum,
+      y = TG_hr
+    )
+  ) +
+  scale_y_continuous(
+    sec.axis = sec_axis(
+      transform = ~ log(2) / .,
+      breaks = c(0.01, 0.05, 0.1, 0.5),
+      name = latex2exp::TeX("CUB-predicted \nmaximum growth rate $(d^{-1})$")
+    )
+  ) +
+  ggdist::stat_pointinterval() +
+  coord_cartesian(ylim = c(0, 16)) +
+  theme_bw() +
+  theme(
+    panel.grid = element_blank(),
+    aspect.ratio = 1,
+    axis.title.x = element_text(hjust = 0),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm")
+  ) +
+  labs(
+    y = "CUB-predicted \nminimum doubling time (d)",
+    x = "Phylum"
+  )
+```
+
+
+```{r}
+grodon_mmv2 <- readxl::read_excel("data/grodon_metagenome_summary.xlsx")
+```
+
+
+```{r}
+grodon_mmv2 |>
+  ggplot(
+    aes(
+      x = timepoint,
+      y = TG_hr
+    )
+  ) +
+  geom_pointrange(aes(ymin = TG_lower_CI, ymax = TG_upper_CI)) +
+  facet_wrap(condition ~ site)
+```
+
+
+```{r}
+grodon_tax |>
+  filter(!is.na(site)) |>
+  mutate(
+    site = case_when(site == "JCR" ~ "Pasture", site == "LOM" ~ "Grassland")
+  ) |>
+  ggplot(
+    aes(
+      x = condition,
+      y = TG_hr
+    )
+  ) +
+  stat_multcomp(use_label("P"), mc.cutoff.p.value = 0.1) +
+  ggdist::stat_slabinterval(
+    aes(fill = condition),
+    slab_color = "black",
+    slab_linewidth = 0.5
+  ) +
+  facet_wrap(vars(site)) +
+  scale_fill_manual(values = c("#4E80C7", "#FC9403")) +
+  facet_wrap(. ~ site) +
+  labs(
+    x = "",
+    y = "Maximum potential generation time (hr)"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "none"
+  )
+```

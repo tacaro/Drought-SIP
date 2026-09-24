@@ -22,15 +22,16 @@ read_tms_processed <- function(filename, start = NA, end = NA) {
     janitor::clean_names() |>
     rename(vwc_temp_corr = vol_moisture) |>
     rename(vwc = volumetric_soil_moisture_without_temp_correction) |>
-    select(datetime, vwc, vwc_temp_corr) |>
+    rename(temp_C = d) |>
+    select(datetime, vwc, vwc_temp_corr, temp_C) |>
     mutate(datetime = lubridate::ymd_hm(datetime)) |>
     mutate(datetime = with_tz(datetime, tzone = "America/Los_Angeles")) |>
     mutate(filename = filename)
 }
 
 filter_tms_window <- function(tms_data, precip_time) {
-  start = precip_time - lubridate::hours(24)
-  end = precip_time + lubridate::hours(54)
+  start <- precip_time - lubridate::hours(24)
+  end <- precip_time + lubridate::hours(54)
   tms_data |>
     filter(datetime >= start & datetime <= end)
 }
@@ -60,7 +61,6 @@ jr679 |>
     y = "Volumetric Water Content (VWC)"
   ) +
   theme(panel.grid.minor = element_blank())
-
 ```
 
 
@@ -113,7 +113,6 @@ lr424 |>
     y = "Volumetric Water Content (VWC)"
   ) +
   theme(panel.grid.minor = element_blank())
-
 ```
 
 
@@ -139,7 +138,6 @@ ls413 |>
     y = "Volumetric Water Content (VWC)"
   ) +
   theme(panel.grid.minor = element_blank())
-
 ```
 
 # combined tibble
@@ -249,7 +247,7 @@ jcr_data_full <- read_tms_processed(
       str_detect(filename, "ROS") ~ "Drought",
       str_detect(filename, "SKY") ~ "Control"
     ),
-    site = "Cattle Pasture"
+    site = "Pasture"
   )
 
 
@@ -291,7 +289,6 @@ lom_data_full <- read_tms_processed(
     ),
     site = "Grassland"
   )
-
 ``` 
 
 ```{r}
@@ -354,4 +351,85 @@ cowplot::save_plot(
   base_height = 8,
   base_width = 6
 )
+```
+
+# temperature plot
+
+
+```{r}
+jcr_data_full |> glimpse()
+
+jcr_average_temps <- jcr_data_full |>
+  group_by(site, condition, depth_cm) |>
+  summarise(
+    mean_temp = mean(temp_C, na.rm = TRUE)
+  )
+
+p_jcr_temp <- jcr_data_full |>
+  filter(site == "Pasture") |>
+  ggplot(
+    aes(
+      x = datetime,
+      y = temp_C,
+    )
+  ) +
+  geom_line(alpha = 0.3, color = "gray") +
+  geom_hline(data = jcr_average_temps, aes(yintercept = mean_temp)) +
+  facet_grid(depth_cm ~ condition) +
+  geom_smooth() +
+  labs(
+    y = "Temperature (C)",
+    x = "",
+    title = "Pasture - Jalama Canyon Ranch"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+lom_data_full |>
+  glimpse()
+
+
+lom_average_temps <- lom_data_full |>
+  group_by(site, condition, depth_cm) |>
+  summarise(
+    mean_temp = mean(temp_C, na.rm = TRUE)
+  )
+
+p_loma_temp <- lom_data_full |>
+  ggplot(
+    aes(
+      x = datetime,
+      y = temp_C,
+    )
+  ) +
+  geom_line(alpha = 0.3, color = "gray") +
+  geom_hline(data = lom_average_temps, aes(yintercept = mean_temp)) +
+  facet_grid(depth_cm ~ condition) +
+  geom_smooth() +
+  labs(
+    y = "Temperature (C)",
+    x = "",
+    title = "Grassland - Loma Ridge"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+p_combined <- cowplot::plot_grid(plot = p_jcr_temp, p_loma_temp)
+p_combined
+
+cowplot::save_plot(
+  plot = p_combined,
+  filename = "fig_output/soil_temp_combined.pdf",
+  base_height = 6,
+  base_width = 8
+)
+```
+
+
+```{r}
+jcr_average_temps |> bind_rows(lom_average_temps)
 ```

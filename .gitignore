@@ -15,3 +15,9 @@ cache/dna_sip_data.rds
 data/~$SRA_Metagenome.environmental.1.0.xlsx
 data/SRA_Metagenome.environmental.1.0.xlsx
 data/SRA_metadata.xlsx
+08_grodon.html
+08_grodon_files/figure-html/unnamed-chunk-3-1.png
+*.js
+*.woff
+*.css
+*.html

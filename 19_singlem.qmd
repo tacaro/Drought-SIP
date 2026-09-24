@@ -1,0 +1,175 @@
+---
+title: "singleM"
+---
+
+
+```{r}
+library(tidyverse)
+```
+
+# read + tidy
+
+Each column in the singleM summarise output encodes a sample as
+`Caro-Soil-SIP-pooled__{sample_id}_{n}__{library}__{lane}_...`, where
+`sample_id` is a 4-character code (e.g. `JR71`). The first 3 characters are
+the sample code (site/condition/timepoint); the 4th character is an integer
+replicate (1-3). Each sample was also sequenced across 3 lanes, so every
+sample code has 9 columns (3 replicates x 3 lanes) that all collapse to one
+averaged value per taxon.
+
+The 3-character sample code itself is also structured, one letter per factor:
+
+- 1st character: site — `J` = Pasture, `L` = Grassland
+- 2nd character: condition — `R` = Drought, `S` = Control
+- 3rd character: timepoint — `7` = Rewet, `P` = Not Rewet
+
+```{r}
+level_order <- c(
+  "domain",
+  "phylum",
+  "class",
+  "order",
+  "family",
+  "genus",
+  "species"
+)
+
+read_singlem_level <- function(path) {
+  level <- str_extract(basename(path), "(?<=-)[a-z]+(?=\\.tsv$)")
+
+  read_tsv(path, show_col_types = FALSE) |>
+    pivot_longer(
+      cols = -taxonomy,
+      names_to = "sample",
+      values_to = "rel_abund"
+    ) |>
+    mutate(
+      sample_id = str_extract(
+        sample,
+        "(?<=Caro-Soil-SIP-pooled__)[A-Za-z0-9]{4}"
+      ),
+      sample_code = str_sub(sample_id, 1, 3),
+      replicate = as.integer(str_sub(sample_id, 4, 4))
+    ) |>
+    summarize(rel_abund = mean(rel_abund), .by = c(taxonomy, sample_code)) |>
+    mutate(level = level)
+}
+
+taxonomy_long <- list.files(
+  "data/singleM/summarise/",
+  pattern = "\\.tsv$",
+  full.names = TRUE
+) |>
+  map(read_singlem_level) |>
+  list_rbind() |>
+  mutate(
+    level = factor(level, levels = level_order),
+    site = case_match(
+      str_sub(sample_code, 1, 1),
+      "J" ~ "Pasture",
+      "L" ~ "Grassland"
+    ),
+    condition = case_match(
+      str_sub(sample_code, 2, 2),
+      "R" ~ "Drought",
+      "S" ~ "Control"
+    ),
+    timepoint = case_match(
+      str_sub(sample_code, 3, 3),
+      "7" ~ "Rewet",
+      "P" ~ "Not Rewet"
+    ),
+    site = factor(site, levels = c("Pasture", "Grassland")),
+    condition = factor(condition, levels = c("Control", "Drought")),
+    timepoint = factor(timepoint, levels = c("Not Rewet", "Rewet"))
+  )
+
+taxonomy_long |> glimpse()
+```
+
+# bar charts
+
+Each level has too many taxa to color individually, so each chart keeps the
+top 15 taxa by mean relative abundance and folds everything else into "Other".
+Charts are faceted by site (rows) and condition (columns), with timepoint on
+the x-axis.
+
+```{r}
+#| fig-width: 8
+#| fig-height: 5
+
+clean_taxon_label <- function(x) {
+  # taxonomy strings are full lineages like "Root; d__Bacteria; p__Actinomycetota";
+  # for legends we only want the deepest rank's name (e.g. "Actinomycetota")
+  cleaned <- x |>
+    str_extract("[^;]+$") |>
+    str_trim() |>
+    str_remove("^[a-z]__")
+  if_else(cleaned == "" | is.na(cleaned), x, cleaned)
+}
+
+plot_taxonomy_bar <- function(data, level_name, n_top = 15) {
+  # 15 hues interleaved across two lightness bands (needed for enough pairwise
+  # separation at n = 15) plus a desaturated gray for "Other"
+  palette <- c(
+    "#E88D88",
+    "#AE5600",
+    "#C8A049",
+    "#6E7500",
+    "#8FB248",
+    "#008800",
+    "#1CBC84",
+    "#0084B1",
+    "#00BCC0",
+    "#0077D1",
+    "#60ADE6",
+    "#AC30CC",
+    "#BF94E8",
+    "#CB217E",
+    "#E885C4",
+    "#898781"
+  )
+
+  level_data <- data |> filter(level == level_name)
+
+  top_taxa <- level_data |>
+    summarize(mean_abund = mean(rel_abund), .by = taxonomy) |>
+    slice_max(mean_abund, n = n_top) |>
+    pull(taxonomy)
+
+  plot_data <- level_data |>
+    mutate(taxonomy = if_else(taxonomy %in% top_taxa, taxonomy, "Other")) |>
+    summarize(
+      rel_abund = sum(rel_abund),
+      .by = c(site, condition, timepoint, taxonomy)
+    ) |>
+    mutate(
+      taxonomy = clean_taxon_label(taxonomy),
+      taxonomy = fct_reorder(taxonomy, rel_abund, .fun = sum, .desc = TRUE),
+      taxonomy = fct_relevel(taxonomy, "Other", after = Inf)
+    )
+
+  fill_colors <- palette[seq_len(nlevels(plot_data$taxonomy))]
+  names(fill_colors) <- levels(plot_data$taxonomy)
+
+  ggplot(plot_data, aes(x = timepoint, y = rel_abund, fill = taxonomy)) +
+    geom_col(width = 0.8, color = "white", linewidth = 0.2) +
+    scale_fill_manual(values = fill_colors) +
+    facet_grid(rows = vars(site), cols = vars(condition)) +
+    labs(
+      title = str_to_title(level_name),
+      x = NULL,
+      y = "Relative abundance (%)",
+      fill = str_to_title(level_name)
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      panel.grid.major.x = element_blank(),
+      #strip.background = element_rect(fill = "grey90", color = NA)
+    )
+}
+
+walk(level_order, function(lvl) {
+  print(plot_taxonomy_bar(taxonomy_long, lvl))
+})
+```

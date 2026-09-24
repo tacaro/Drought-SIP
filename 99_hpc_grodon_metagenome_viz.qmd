@@ -1,0 +1,79 @@
+---
+title: grodon metagenome data visualization
+---
+
+
+
+```{r}
+library(tidyverse)
+```
+
+read from cache
+
+
+
+
+```{r}
+grodon <- read_rds("cache/grodon_metagenome_v2.RDS")
+grodon |> glimpse()
+```
+
+
+```{r}
+p_grodon_mmv2 <- grodon |>
+  mutate(
+    wetting = case_when(str_detect(sample, "P") ~ "Rewet", TRUE ~ "Not Rewet"),
+    site = case_when(
+      str_detect(sample, "J") ~ "Pasture",
+      str_detect(sample, "L") ~ "Grassland"
+    ),
+    drought = case_when(
+      str_detect(sample, "R") ~ "Drought",
+      str_detect(sample, "S") ~ "Control"
+    ),
+    site = fct_rev(site),
+    drought = factor(drought, levels = c("Drought", "Control"))
+  ) |>
+  ggplot(
+    aes(
+      x = wetting,
+      y = TG_hr,
+      fill = drought,
+      shape = wetting
+    )
+  ) +
+  geom_pointrange(
+    aes(
+      ymin = TG_lower_CI,
+      ymax = TG_upper_CI
+    ),
+    size = 1.5,
+    shape = 21
+  ) +
+  scale_fill_manual(values = c("#FC9403", "#4E80C7")) +
+  scale_shape_manual(values = c(16, 15)) +
+  facet_wrap(site ~ drought) +
+  labs(
+    x = "",
+    y = "Minimum Generation Time (hr)",
+    color = "Drought Condition",
+    shape = "Rewetting Condition"
+  ) +
+  theme_minimal() +
+  theme(
+    strip.text = element_text(size = 16),
+    legend.position = "none"
+  )
+
+p_grodon_mmv2
+```
+
+
+```{r}
+cowplot::save_plot(
+  filename = "fig_output/grodon_metagenomev2.pdf",
+  plot = p_grodon_mmv2,
+  base_height = 4,
+  base_width = 5
+)
+```

@@ -91,4 +91,3 @@ grodon_anova |>
   select(site, timepoint, statistic, p.value, Eta2)
 ```
 
-No pairs are statistically significant at alpha = 0.05 level. Eta2 effect sizes are negligible. However, there are visual differences in the median values between JCR drought and control samples.

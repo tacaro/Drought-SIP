@@ -11,7 +11,7 @@ editor_options:
 library(tidyverse)
 library(ggpmisc)
 
-nuc <- read_tsv("data/nucleotide_skew.tsv") |>
+nuc <- read_tsv("data/CBB_nucleotide_skew.tsv") |>
   rename(bin_name = genome) |>
   mutate(
     condition = case_when(
